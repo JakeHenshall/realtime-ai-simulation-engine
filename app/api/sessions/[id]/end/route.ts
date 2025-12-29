@@ -10,13 +10,14 @@ const sessionService = new SessionService(new SessionRepository());
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const { error } = body;
 
-    const session = await sessionService.endSession(params.id, error);
+    const session = await sessionService.endSession(id, error);
 
     return NextResponse.json(session);
   } catch (err) {

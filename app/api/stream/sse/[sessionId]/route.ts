@@ -8,13 +8,14 @@ const sessionService = new SessionService(new SessionRepository());
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
-    await sessionService.getSession(params.sessionId);
+    const { sessionId } = await params;
+    await sessionService.getSession(sessionId);
 
     const clientId = `${Date.now()}-${Math.random()}`;
-    pubsub.subscribe(params.sessionId, clientId);
+    pubsub.subscribe(sessionId, clientId);
 
     const stream = new ReadableStream({
       start(controller) {
@@ -31,11 +32,11 @@ export async function GET(
           }
         };
 
-        pubsub.on(`session:${params.sessionId}`, handler);
+        pubsub.on(`session:${sessionId}`, handler);
 
         request.signal.addEventListener('abort', () => {
-          pubsub.off(`session:${params.sessionId}`, handler);
-          pubsub.unsubscribe(params.sessionId, clientId);
+          pubsub.off(`session:${sessionId}`, handler);
+          pubsub.unsubscribe(sessionId, clientId);
           controller.close();
         });
       },

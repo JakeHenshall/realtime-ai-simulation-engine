@@ -5,14 +5,15 @@ import { checkRateLimit, apiRateLimiter } from '@/lib/rate-limit';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
     await checkRateLimit(apiRateLimiter, clientIp);
 
     const analytics = await db.simulationAnalytics.findUnique({
-      where: { simulationId: params.id },
+      where: { simulationId: id },
     });
 
     if (!analytics) {
@@ -23,19 +24,19 @@ export async function GET(
     const [activeAgents, pendingActions, recentErrors] = await Promise.all([
       db.agent.count({
         where: {
-          simulationId: params.id,
+          simulationId: id,
           status: { in: ['THINKING', 'ACTING'] },
         },
       }),
       db.agentAction.count({
         where: {
-          agent: { simulationId: params.id },
+          agent: { simulationId: id },
           status: 'PENDING',
         },
       }),
       db.simulationEvent.count({
         where: {
-          simulationId: params.id,
+          simulationId: id,
           type: 'ERROR',
           timestamp: {
             gte: new Date(Date.now() - 3600000), // Last hour

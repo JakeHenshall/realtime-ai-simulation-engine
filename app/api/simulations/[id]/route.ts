@@ -7,14 +7,15 @@ import { updateSimulationSchema } from '@/lib/validation';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
     await checkRateLimit(apiRateLimiter, clientIp);
 
     const simulation = await db.simulation.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agents: {
           orderBy: { createdAt: 'asc' },
@@ -45,9 +46,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getOrCreateUserId(request);
     const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
 
@@ -57,11 +59,11 @@ export async function PATCH(
     const data = updateSimulationSchema.parse(body);
 
     const simulation = await db.simulation.update({
-      where: { id: params.id },
+      where: { id },
       data,
     });
 
-    logger.info({ simulationId: params.id, userId, status: data.status }, 'Simulation updated');
+    logger.info({ simulationId: id, userId, status: data.status }, 'Simulation updated');
 
     return NextResponse.json(simulation);
   } catch (error: any) {

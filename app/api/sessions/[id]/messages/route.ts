@@ -10,9 +10,10 @@ const sessionService = new SessionService(new SessionRepository());
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const { role, content, metadata } = body;
 
@@ -31,7 +32,7 @@ export async function POST(
     }
 
     const message = await sessionService.appendMessage(
-      params.id,
+      id,
       role,
       content,
       metadata
@@ -56,10 +57,11 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await sessionService.getSession(params.id);
+    const { id } = await params;
+    const session = await sessionService.getSession(id);
 
     return NextResponse.json(session.messages);
   } catch (error) {

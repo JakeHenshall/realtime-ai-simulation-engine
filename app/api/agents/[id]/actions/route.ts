@@ -13,9 +13,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getOrCreateUserId(request);
     const clientIp =
       request.headers.get("x-forwarded-for") || request.ip || "unknown";
@@ -26,13 +27,13 @@ export async function POST(
     const body = await request.json();
     const data = triggerActionSchema.parse(body);
 
-    if (data.agentId !== params.id) {
+    if (data.agentId !== id) {
       return NextResponse.json({ error: "Agent ID mismatch" }, { status: 400 });
     }
 
     // Verify agent exists and get simulation
     const agent = await db.agent.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { simulation: true },
     });
 
@@ -49,14 +50,14 @@ export async function POST(
 
     // Update agent status
     await db.agent.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: "THINKING" },
     });
 
     // Create pending action
     const action = await db.agentAction.create({
       data: {
-        agentId: params.id,
+        agentId: id,
         type: data.actionType,
         content: JSON.stringify(data.context || {}),
         status: ActionStatus.PENDING,
@@ -66,7 +67,7 @@ export async function POST(
     // Queue the job
     const job = await createAgentActionJob(
       {
-        agentId: params.id,
+        agentId: id,
         simulationId: agent.simulationId,
         actionType: data.actionType,
         context: data.context || {},
@@ -75,7 +76,7 @@ export async function POST(
     );
 
     logger.info(
-      { agentId: params.id, actionId: action.id, jobId: job.id, userId },
+      { agentId: id, actionId: action.id, jobId: job.id, userId },
       "Agent action queued"
     );
 

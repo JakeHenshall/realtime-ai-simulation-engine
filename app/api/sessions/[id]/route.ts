@@ -7,10 +7,11 @@ const sessionService = new SessionService(new SessionRepository());
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await sessionService.getSession(params.id);
+    const { id } = await params;
+    const session = await sessionService.getSession(id);
 
     return NextResponse.json(session);
   } catch (error) {
