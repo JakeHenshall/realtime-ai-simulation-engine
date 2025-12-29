@@ -8,7 +8,7 @@ import { getOrCreateUserId } from '@/lib/auth';
 export async function POST(request: NextRequest) {
   try {
     const userId = getOrCreateUserId(request);
-    const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
     // Rate limiting
     await checkRateLimit(apiRateLimiter, clientIp);
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const userId = getOrCreateUserId(request);
-    const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
     await checkRateLimit(apiRateLimiter, clientIp);
 

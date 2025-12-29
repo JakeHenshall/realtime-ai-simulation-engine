@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     await checkRateLimit(apiRateLimiter, clientIp);
 
     const simulation = await db.simulation.findUnique({
@@ -51,7 +51,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const userId = getOrCreateUserId(request);
-    const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
     await checkRateLimit(apiRateLimiter, clientIp);
 

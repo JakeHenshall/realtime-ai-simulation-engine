@@ -18,7 +18,7 @@ export async function POST(
     const { id } = await params;
     const userId = getOrCreateUserId(request);
     const clientIp =
-      request.headers.get("x-forwarded-for") || request.ip || "unknown";
+      request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
 
     await checkRateLimit(apiRateLimiter, clientIp);
     await checkRateLimit(aiRateLimiter, userId);

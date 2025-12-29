@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 import { checkRateLimit, apiRateLimiter } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
-  const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+  const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
   try {
     await checkRateLimit(apiRateLimiter, clientIp);

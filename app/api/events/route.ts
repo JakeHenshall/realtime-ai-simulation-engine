@@ -5,7 +5,7 @@ import { checkRateLimit, apiRateLimiter } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
   try {
-    const clientIp = request.headers.get('x-forwarded-for') || request.ip || 'unknown';
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     await checkRateLimit(apiRateLimiter, clientIp);
 
     const { searchParams } = new URL(request.url);
