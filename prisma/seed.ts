@@ -3,8 +3,8 @@ import { PrismaClient, PressureLevel } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import Database from 'better-sqlite3';
 
-const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
-const sqlite = new Database(databaseUrl.replace('file:', ''));
+const databaseUrl = process.env.DATABASE_URL || './prisma/dev.db';
+const sqlite = new Database(databaseUrl.replace(/^file:/, ''));
 const adapter = new PrismaBetterSqlite3(sqlite);
 const prisma = new PrismaClient({ adapter });
 
