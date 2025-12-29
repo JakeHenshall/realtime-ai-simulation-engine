@@ -1,8 +1,8 @@
-import { startAgentActionWorker } from './queue';
+// import { startAgentActionWorker } from './queue';
 import { logger } from './logger';
-import { Worker } from 'bullmq';
+// import { Worker } from 'bullmq';
 
-let worker: Worker | null = null;
+let worker: any = null;
 
 export function startWorker() {
   if (worker) {
@@ -10,9 +10,10 @@ export function startWorker() {
     return worker;
   }
 
-  logger.info('Starting agent action worker');
-  worker = startAgentActionWorker();
-  return worker;
+  logger.info('Worker functionality not available - database models not implemented');
+  throw new Error('Worker functionality not available - database models not implemented');
+  // worker = startAgentActionWorker();
+  // return worker;
 }
 
 export async function stopWorker() {
