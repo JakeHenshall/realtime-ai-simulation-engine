@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { db } from '../lib/db';
 
 async function testDatabase() {
-  console.log('🔍 Testing Prisma Postgres connection...\n');
+  console.log('🔍 Testing Prisma SQLite connection...\n');
 
   try {
     // Test 1: Check connection
