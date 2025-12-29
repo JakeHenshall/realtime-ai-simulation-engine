@@ -6,3 +6,94 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum SessionStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ERROR
+}
+
+enum PressureLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ScenarioPreset {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  pressure    PressureLevel @default(MEDIUM)
+  config      String   // JSON string for scenario configuration
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions    SimulationSession[]
+
+  @@index([pressure])
+  @@index([createdAt])
+}
+
+model SimulationSession {
+  id          String        @id @default(cuid())
+  presetId    String?
+  name        String
+  status      SessionStatus @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  preset      ScenarioPreset? @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  messages    SimulationMessage[]
+  metrics     SessionMetrics?
+  analysis    SessionAnalysis?
+
+  @@index([status])
+  @@index([presetId])
+  @@index([createdAt])
+}
+
+model SimulationMessage {
+  id          String   @id @default(cuid())
+  sessionId   String
+  role        String   // e.g., "user", "assistant", "system"
+  content     String
+  metadata    String?  // JSON string for additional message data
+  timestamp   DateTime @default(now())
+
+  session     SimulationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([timestamp])
+  @@index([role])
+}
+
+model SessionMetrics {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  totalMessages   Int      @default(0)
+  avgResponseTime Float?   // milliseconds
+  errorCount      Int      @default(0)
+  lastUpdated     DateTime @default(now()) @updatedAt
+
+  session         SimulationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([lastUpdated])
+}
+
+model SessionAnalysis {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  summary     String?
+  insights    String?  // JSON string for analysis insights
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  session     SimulationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
