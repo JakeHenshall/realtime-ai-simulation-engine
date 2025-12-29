@@ -3,9 +3,19 @@ import { PrismaClient, PressureLevel } from '../generated/prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import Database from 'better-sqlite3';
 
-const databaseUrl = process.env.DATABASE_URL || './prisma/dev.db';
-const sqlite = new Database(databaseUrl.replace(/^file:/, ''));
-const adapter = new PrismaBetterSqlite3(sqlite);
+import { mkdirSync } from 'fs';
+import { dirname } from 'path';
+
+const databaseUrl = process.env.DATABASE_URL || 'file:./prisma/dev.db';
+const dbPath = databaseUrl.replace(/^file:/, '');
+const dbDir = dirname(dbPath);
+mkdirSync(dbDir, { recursive: true });
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = databaseUrl;
+}
+
+const adapter = new PrismaBetterSqlite3({ url: dbPath });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
