@@ -6,9 +6,12 @@ import { streamingLLM } from '@/lib/streaming-llm';
 import { PromptComposer } from '@/lib/prompts/prompt-composer';
 import { pubsub, StreamEvent } from '@/lib/pubsub';
 import { SessionStatus } from '@/generated/prisma/client';
+import { metricsAnalyzer } from '@/lib/metrics/analyzer';
+import { behaviorAdapter } from '@/lib/metrics/behavior-adapter';
 
 const sessionService = new SessionService(new SessionRepository());
 const promptComposer = new PromptComposer();
+const repository = new SessionRepository();
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,10 +40,20 @@ export async function POST(request: NextRequest) {
     // Get session with messages for context
     const sessionWithMessages = await sessionService.getSession(sessionId);
     const sessionData = sessionWithMessages as any;
-    const recentMessages = (sessionData.messages || []).slice(-10).map((msg: any) => ({
+    const allMessages = (sessionData.messages || []).map((msg: any) => ({
       role: msg.role,
       content: msg.content,
     }));
+    const recentMessages = allMessages.slice(-10);
+
+    // Calculate current session metrics
+    const sessionMetrics = metricsAnalyzer.calculateSessionMetrics(allMessages);
+    
+    // Update metrics in database
+    await repository.updateBehaviorMetrics(sessionId, sessionMetrics);
+
+    // Determine behavior adaptation based on metrics
+    const adaptation = behaviorAdapter.adaptBehavior(sessionMetrics);
 
     const systemPrompt = promptComposer.buildSystemPrompt({
       persona: {
@@ -53,6 +66,7 @@ export async function POST(request: NextRequest) {
         primary: 'Provide helpful and accurate responses',
       },
       pressure: (sessionData.preset?.pressure as any) ?? 'MEDIUM',
+      behaviorModifier: adaptation.modifier,
       safetyEnforcement: true,
     });
 
@@ -105,8 +119,15 @@ export async function POST(request: NextRequest) {
               timeToFirstToken: firstTokenTime ? firstTokenTime - startTime : undefined,
               totalTime: Date.now() - startTime,
             },
+            behaviorModifier: adaptation.modifier,
+            adaptationReason: adaptation.reason,
           }
         );
+
+        // Recalculate metrics with the new message and update
+        const updatedMessages = [...allMessages, { role: 'assistant', content: fullResponse }];
+        const updatedMetrics = metricsAnalyzer.calculateSessionMetrics(updatedMessages);
+        await repository.updateBehaviorMetrics(sessionId, updatedMetrics);
 
         const doneEvent: StreamEvent = {
           type: 'done',

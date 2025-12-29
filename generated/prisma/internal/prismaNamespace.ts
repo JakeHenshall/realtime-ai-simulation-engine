@@ -859,6 +859,9 @@ export const SessionMetricsScalarFieldEnum = {
   totalMessages: 'totalMessages',
   avgResponseTime: 'avgResponseTime',
   errorCount: 'errorCount',
+  evasiveness: 'evasiveness',
+  contradiction: 'contradiction',
+  sentiment: 'sentiment',
   lastUpdated: 'lastUpdated'
 } as const
 

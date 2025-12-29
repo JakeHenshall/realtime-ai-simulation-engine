@@ -30,12 +30,18 @@ export type SessionMetricsAvgAggregateOutputType = {
   totalMessages: number | null
   avgResponseTime: number | null
   errorCount: number | null
+  evasiveness: number | null
+  contradiction: number | null
+  sentiment: number | null
 }
 
 export type SessionMetricsSumAggregateOutputType = {
   totalMessages: number | null
   avgResponseTime: number | null
   errorCount: number | null
+  evasiveness: number | null
+  contradiction: number | null
+  sentiment: number | null
 }
 
 export type SessionMetricsMinAggregateOutputType = {
@@ -44,6 +50,9 @@ export type SessionMetricsMinAggregateOutputType = {
   totalMessages: number | null
   avgResponseTime: number | null
   errorCount: number | null
+  evasiveness: number | null
+  contradiction: number | null
+  sentiment: number | null
   lastUpdated: Date | null
 }
 
@@ -53,6 +62,9 @@ export type SessionMetricsMaxAggregateOutputType = {
   totalMessages: number | null
   avgResponseTime: number | null
   errorCount: number | null
+  evasiveness: number | null
+  contradiction: number | null
+  sentiment: number | null
   lastUpdated: Date | null
 }
 
@@ -62,6 +74,9 @@ export type SessionMetricsCountAggregateOutputType = {
   totalMessages: number
   avgResponseTime: number
   errorCount: number
+  evasiveness: number
+  contradiction: number
+  sentiment: number
   lastUpdated: number
   _all: number
 }
@@ -71,12 +86,18 @@ export type SessionMetricsAvgAggregateInputType = {
   totalMessages?: true
   avgResponseTime?: true
   errorCount?: true
+  evasiveness?: true
+  contradiction?: true
+  sentiment?: true
 }
 
 export type SessionMetricsSumAggregateInputType = {
   totalMessages?: true
   avgResponseTime?: true
   errorCount?: true
+  evasiveness?: true
+  contradiction?: true
+  sentiment?: true
 }
 
 export type SessionMetricsMinAggregateInputType = {
@@ -85,6 +106,9 @@ export type SessionMetricsMinAggregateInputType = {
   totalMessages?: true
   avgResponseTime?: true
   errorCount?: true
+  evasiveness?: true
+  contradiction?: true
+  sentiment?: true
   lastUpdated?: true
 }
 
@@ -94,6 +118,9 @@ export type SessionMetricsMaxAggregateInputType = {
   totalMessages?: true
   avgResponseTime?: true
   errorCount?: true
+  evasiveness?: true
+  contradiction?: true
+  sentiment?: true
   lastUpdated?: true
 }
 
@@ -103,6 +130,9 @@ export type SessionMetricsCountAggregateInputType = {
   totalMessages?: true
   avgResponseTime?: true
   errorCount?: true
+  evasiveness?: true
+  contradiction?: true
+  sentiment?: true
   lastUpdated?: true
   _all?: true
 }
@@ -199,6 +229,9 @@ export type SessionMetricsGroupByOutputType = {
   totalMessages: number
   avgResponseTime: number | null
   errorCount: number
+  evasiveness: number | null
+  contradiction: number | null
+  sentiment: number | null
   lastUpdated: Date
   _count: SessionMetricsCountAggregateOutputType | null
   _avg: SessionMetricsAvgAggregateOutputType | null
@@ -231,6 +264,9 @@ export type SessionMetricsWhereInput = {
   totalMessages?: Prisma.IntFilter<"SessionMetrics"> | number
   avgResponseTime?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
   errorCount?: Prisma.IntFilter<"SessionMetrics"> | number
+  evasiveness?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
+  contradiction?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
+  sentiment?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
   lastUpdated?: Prisma.DateTimeFilter<"SessionMetrics"> | Date | string
   session?: Prisma.XOR<Prisma.SimulationSessionScalarRelationFilter, Prisma.SimulationSessionWhereInput>
 }
@@ -241,6 +277,9 @@ export type SessionMetricsOrderByWithRelationInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrderInput | Prisma.SortOrder
+  contradiction?: Prisma.SortOrderInput | Prisma.SortOrder
+  sentiment?: Prisma.SortOrderInput | Prisma.SortOrder
   lastUpdated?: Prisma.SortOrder
   session?: Prisma.SimulationSessionOrderByWithRelationInput
 }
@@ -254,6 +293,9 @@ export type SessionMetricsWhereUniqueInput = Prisma.AtLeast<{
   totalMessages?: Prisma.IntFilter<"SessionMetrics"> | number
   avgResponseTime?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
   errorCount?: Prisma.IntFilter<"SessionMetrics"> | number
+  evasiveness?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
+  contradiction?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
+  sentiment?: Prisma.FloatNullableFilter<"SessionMetrics"> | number | null
   lastUpdated?: Prisma.DateTimeFilter<"SessionMetrics"> | Date | string
   session?: Prisma.XOR<Prisma.SimulationSessionScalarRelationFilter, Prisma.SimulationSessionWhereInput>
 }, "id" | "sessionId">
@@ -264,6 +306,9 @@ export type SessionMetricsOrderByWithAggregationInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrderInput | Prisma.SortOrder
+  contradiction?: Prisma.SortOrderInput | Prisma.SortOrder
+  sentiment?: Prisma.SortOrderInput | Prisma.SortOrder
   lastUpdated?: Prisma.SortOrder
   _count?: Prisma.SessionMetricsCountOrderByAggregateInput
   _avg?: Prisma.SessionMetricsAvgOrderByAggregateInput
@@ -281,6 +326,9 @@ export type SessionMetricsScalarWhereWithAggregatesInput = {
   totalMessages?: Prisma.IntWithAggregatesFilter<"SessionMetrics"> | number
   avgResponseTime?: Prisma.FloatNullableWithAggregatesFilter<"SessionMetrics"> | number | null
   errorCount?: Prisma.IntWithAggregatesFilter<"SessionMetrics"> | number
+  evasiveness?: Prisma.FloatNullableWithAggregatesFilter<"SessionMetrics"> | number | null
+  contradiction?: Prisma.FloatNullableWithAggregatesFilter<"SessionMetrics"> | number | null
+  sentiment?: Prisma.FloatNullableWithAggregatesFilter<"SessionMetrics"> | number | null
   lastUpdated?: Prisma.DateTimeWithAggregatesFilter<"SessionMetrics"> | Date | string
 }
 
@@ -289,6 +337,9 @@ export type SessionMetricsCreateInput = {
   totalMessages?: number
   avgResponseTime?: number | null
   errorCount?: number
+  evasiveness?: number | null
+  contradiction?: number | null
+  sentiment?: number | null
   lastUpdated?: Date | string
   session: Prisma.SimulationSessionCreateNestedOneWithoutMetricsInput
 }
@@ -299,6 +350,9 @@ export type SessionMetricsUncheckedCreateInput = {
   totalMessages?: number
   avgResponseTime?: number | null
   errorCount?: number
+  evasiveness?: number | null
+  contradiction?: number | null
+  sentiment?: number | null
   lastUpdated?: Date | string
 }
 
@@ -307,6 +361,9 @@ export type SessionMetricsUpdateInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   session?: Prisma.SimulationSessionUpdateOneRequiredWithoutMetricsNestedInput
 }
@@ -317,6 +374,9 @@ export type SessionMetricsUncheckedUpdateInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -326,6 +386,9 @@ export type SessionMetricsCreateManyInput = {
   totalMessages?: number
   avgResponseTime?: number | null
   errorCount?: number
+  evasiveness?: number | null
+  contradiction?: number | null
+  sentiment?: number | null
   lastUpdated?: Date | string
 }
 
@@ -334,6 +397,9 @@ export type SessionMetricsUpdateManyMutationInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -343,6 +409,9 @@ export type SessionMetricsUncheckedUpdateManyInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -357,6 +426,9 @@ export type SessionMetricsCountOrderByAggregateInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrder
+  contradiction?: Prisma.SortOrder
+  sentiment?: Prisma.SortOrder
   lastUpdated?: Prisma.SortOrder
 }
 
@@ -364,6 +436,9 @@ export type SessionMetricsAvgOrderByAggregateInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrder
+  contradiction?: Prisma.SortOrder
+  sentiment?: Prisma.SortOrder
 }
 
 export type SessionMetricsMaxOrderByAggregateInput = {
@@ -372,6 +447,9 @@ export type SessionMetricsMaxOrderByAggregateInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrder
+  contradiction?: Prisma.SortOrder
+  sentiment?: Prisma.SortOrder
   lastUpdated?: Prisma.SortOrder
 }
 
@@ -381,6 +459,9 @@ export type SessionMetricsMinOrderByAggregateInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrder
+  contradiction?: Prisma.SortOrder
+  sentiment?: Prisma.SortOrder
   lastUpdated?: Prisma.SortOrder
 }
 
@@ -388,6 +469,9 @@ export type SessionMetricsSumOrderByAggregateInput = {
   totalMessages?: Prisma.SortOrder
   avgResponseTime?: Prisma.SortOrder
   errorCount?: Prisma.SortOrder
+  evasiveness?: Prisma.SortOrder
+  contradiction?: Prisma.SortOrder
+  sentiment?: Prisma.SortOrder
 }
 
 export type SessionMetricsCreateNestedOneWithoutSessionInput = {
@@ -443,6 +527,9 @@ export type SessionMetricsCreateWithoutSessionInput = {
   totalMessages?: number
   avgResponseTime?: number | null
   errorCount?: number
+  evasiveness?: number | null
+  contradiction?: number | null
+  sentiment?: number | null
   lastUpdated?: Date | string
 }
 
@@ -451,6 +538,9 @@ export type SessionMetricsUncheckedCreateWithoutSessionInput = {
   totalMessages?: number
   avgResponseTime?: number | null
   errorCount?: number
+  evasiveness?: number | null
+  contradiction?: number | null
+  sentiment?: number | null
   lastUpdated?: Date | string
 }
 
@@ -475,6 +565,9 @@ export type SessionMetricsUpdateWithoutSessionInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -483,6 +576,9 @@ export type SessionMetricsUncheckedUpdateWithoutSessionInput = {
   totalMessages?: Prisma.IntFieldUpdateOperationsInput | number
   avgResponseTime?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   errorCount?: Prisma.IntFieldUpdateOperationsInput | number
+  evasiveness?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  contradiction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  sentiment?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
   lastUpdated?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -494,6 +590,9 @@ export type SessionMetricsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   totalMessages?: boolean
   avgResponseTime?: boolean
   errorCount?: boolean
+  evasiveness?: boolean
+  contradiction?: boolean
+  sentiment?: boolean
   lastUpdated?: boolean
   session?: boolean | Prisma.SimulationSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["sessionMetrics"]>
@@ -504,6 +603,9 @@ export type SessionMetricsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   totalMessages?: boolean
   avgResponseTime?: boolean
   errorCount?: boolean
+  evasiveness?: boolean
+  contradiction?: boolean
+  sentiment?: boolean
   lastUpdated?: boolean
   session?: boolean | Prisma.SimulationSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["sessionMetrics"]>
@@ -514,6 +616,9 @@ export type SessionMetricsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   totalMessages?: boolean
   avgResponseTime?: boolean
   errorCount?: boolean
+  evasiveness?: boolean
+  contradiction?: boolean
+  sentiment?: boolean
   lastUpdated?: boolean
   session?: boolean | Prisma.SimulationSessionDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["sessionMetrics"]>
@@ -524,10 +629,13 @@ export type SessionMetricsSelectScalar = {
   totalMessages?: boolean
   avgResponseTime?: boolean
   errorCount?: boolean
+  evasiveness?: boolean
+  contradiction?: boolean
+  sentiment?: boolean
   lastUpdated?: boolean
 }
 
-export type SessionMetricsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "totalMessages" | "avgResponseTime" | "errorCount" | "lastUpdated", ExtArgs["result"]["sessionMetrics"]>
+export type SessionMetricsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "totalMessages" | "avgResponseTime" | "errorCount" | "evasiveness" | "contradiction" | "sentiment" | "lastUpdated", ExtArgs["result"]["sessionMetrics"]>
 export type SessionMetricsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   session?: boolean | Prisma.SimulationSessionDefaultArgs<ExtArgs>
 }
@@ -549,6 +657,9 @@ export type $SessionMetricsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     totalMessages: number
     avgResponseTime: number | null
     errorCount: number
+    evasiveness: number | null
+    contradiction: number | null
+    sentiment: number | null
     lastUpdated: Date
   }, ExtArgs["result"]["sessionMetrics"]>
   composites: {}
@@ -979,6 +1090,9 @@ export interface SessionMetricsFieldRefs {
   readonly totalMessages: Prisma.FieldRef<"SessionMetrics", 'Int'>
   readonly avgResponseTime: Prisma.FieldRef<"SessionMetrics", 'Float'>
   readonly errorCount: Prisma.FieldRef<"SessionMetrics", 'Int'>
+  readonly evasiveness: Prisma.FieldRef<"SessionMetrics", 'Float'>
+  readonly contradiction: Prisma.FieldRef<"SessionMetrics", 'Float'>
+  readonly sentiment: Prisma.FieldRef<"SessionMetrics", 'Float'>
   readonly lastUpdated: Prisma.FieldRef<"SessionMetrics", 'DateTime'>
 }
     

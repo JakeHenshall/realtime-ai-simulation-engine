@@ -93,6 +93,36 @@ export class SessionRepository {
     }
   }
 
+  async updateBehaviorMetrics(
+    sessionId: string,
+    metrics: { evasiveness?: number; contradiction?: number; sentiment?: number }
+  ): Promise<void> {
+    const existing = await db.sessionMetrics.findUnique({
+      where: { sessionId },
+    });
+
+    if (existing) {
+      await db.sessionMetrics.update({
+        where: { sessionId },
+        data: {
+          evasiveness: metrics.evasiveness ?? existing.evasiveness,
+          contradiction: metrics.contradiction ?? existing.contradiction,
+          sentiment: metrics.sentiment ?? existing.sentiment,
+        },
+      });
+    } else {
+      await db.sessionMetrics.create({
+        data: {
+          sessionId,
+          totalMessages: 0,
+          evasiveness: metrics.evasiveness,
+          contradiction: metrics.contradiction,
+          sentiment: metrics.sentiment,
+        },
+      });
+    }
+  }
+
   async list(limit = 50, offset = 0): Promise<SimulationSession[]> {
     return db.simulationSession.findMany({
       take: limit,

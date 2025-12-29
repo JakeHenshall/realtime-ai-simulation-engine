@@ -78,6 +78,9 @@ model SessionMetrics {
   totalMessages   Int      @default(0)
   avgResponseTime Float?   // milliseconds
   errorCount      Int      @default(0)
+  evasiveness     Float?   // 0.0-1.0, higher = more evasive
+  contradiction   Float?   // 0.0-1.0, higher = more contradictory
+  sentiment       Float?   // -1.0 to 1.0, negative = negative sentiment
   lastUpdated     DateTime @default(now()) @updatedAt
 
   session         SimulationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
