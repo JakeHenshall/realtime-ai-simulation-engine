@@ -13,3 +13,10 @@ export const logger = pino({
       }
     : undefined,
 });
+
+export function createRequestLogger(requestId: string, additionalContext?: Record<string, any>) {
+  return logger.child({
+    requestId,
+    ...additionalContext,
+  });
+}

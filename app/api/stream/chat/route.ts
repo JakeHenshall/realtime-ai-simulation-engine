@@ -13,20 +13,52 @@ const sessionService = new SessionService(new SessionRepository());
 const promptComposer = new PromptComposer();
 const repository = new SessionRepository();
 
+import { getRequestId } from '@/lib/middleware/request-id';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
+import { createRequestLogger } from '@/lib/logger';
+import { streamChatSchema } from '@/lib/validation/api-schemas';
+import { ZodError } from 'zod';
+
 export async function POST(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const logger = createRequestLogger(requestId, {
+    method: request.method,
+    path: request.nextUrl.pathname,
+  });
+
+  let sessionId: string | undefined;
   try {
-    const body = await request.json();
-    const { sessionId, message } = body;
-
-    if (!sessionId || typeof sessionId !== 'string') {
-      return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+    // Validate body
+    let body: { sessionId: string; message: string };
+    try {
+      const rawBody = await request.json();
+      body = streamChatSchema.parse(rawBody);
+      sessionId = body.sessionId;
+    } catch (error) {
+      if (error instanceof ZodError) {
+        logger.warn({ errors: error.issues }, 'Validation error');
+        return NextResponse.json(
+          { error: 'Validation failed', details: error.issues, requestId },
+          { status: 400 }
+        );
+      }
+      throw error;
     }
 
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json({ error: 'message is required' }, { status: 400 });
+    const { message } = body;
+
+    // sessionId is guaranteed to be defined here after validation
+    // TypeScript narrowing: after validation, sessionId is always a string
+    const validatedSessionId: string = sessionId!;
+
+    // Rate limiting by session ID
+    const rateLimitResult = await checkRateLimit(request, validatedSessionId);
+    if (!rateLimitResult.allowed) {
+      logger.warn({ sessionId: validatedSessionId }, 'Rate limit exceeded');
+      return createRateLimitResponse(rateLimitResult.msBeforeNext);
     }
 
-    const session = await sessionService.getSession(sessionId);
+    const session = await sessionService.getSession(validatedSessionId);
 
     if (session.status !== SessionStatus.ACTIVE) {
       return NextResponse.json({ error: 'Session must be active' }, { status: 400 });
@@ -35,10 +67,10 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now();
     let firstTokenTime: number | undefined;
 
-    const userMessage = await sessionService.appendMessage(sessionId, 'user', message);
+    const userMessage = await sessionService.appendMessage(validatedSessionId, 'user', message);
 
     // Get session with messages for context
-    const sessionWithMessages = await sessionService.getSession(sessionId);
+    const sessionWithMessages = await sessionService.getSession(validatedSessionId);
     const sessionData = sessionWithMessages as any;
     const allMessages = (sessionData.messages || []).map((msg: any) => ({
       role: msg.role,
@@ -50,7 +82,7 @@ export async function POST(request: NextRequest) {
     const sessionMetrics = metricsAnalyzer.calculateSessionMetrics(allMessages);
     
     // Update metrics in database
-    await repository.updateBehaviorMetrics(sessionId, sessionMetrics);
+    await repository.updateBehaviorMetrics(validatedSessionId, sessionMetrics);
 
     // Determine behavior adaptation based on metrics
     const adaptation = behaviorAdapter.adaptBehavior(sessionMetrics);
@@ -93,7 +125,7 @@ export async function POST(request: NextRequest) {
               type: chunk.done ? 'done' : 'token',
               data: chunk.content,
               metadata: {
-                sessionId,
+                sessionId: validatedSessionId,
                 messageId: userMessage.id,
                 latency: firstTokenTime
                   ? {
@@ -104,14 +136,14 @@ export async function POST(request: NextRequest) {
               },
             };
 
-            pubsub.publish(sessionId, event);
+            pubsub.publish(validatedSessionId, event);
           },
         })) {
           fullResponse += chunk.content;
         }
 
         const assistantMessage = await sessionService.appendMessage(
-          sessionId,
+          validatedSessionId,
           'assistant',
           fullResponse,
           {
@@ -127,13 +159,13 @@ export async function POST(request: NextRequest) {
         // Recalculate metrics with the new message and update
         const updatedMessages = [...allMessages, { role: 'assistant', content: fullResponse }];
         const updatedMetrics = metricsAnalyzer.calculateSessionMetrics(updatedMessages);
-        await repository.updateBehaviorMetrics(sessionId, updatedMetrics);
+        await repository.updateBehaviorMetrics(validatedSessionId, updatedMetrics);
 
         const doneEvent: StreamEvent = {
           type: 'done',
           data: '',
           metadata: {
-            sessionId,
+            sessionId: validatedSessionId,
             messageId: assistantMessage.id,
             latency: {
               timeToFirstToken: firstTokenTime ? firstTokenTime - startTime : undefined,
@@ -142,31 +174,36 @@ export async function POST(request: NextRequest) {
           },
         };
 
-        pubsub.publish(sessionId, doneEvent);
+        pubsub.publish(validatedSessionId, doneEvent);
       } catch (error) {
         const errorEvent: StreamEvent = {
           type: 'error',
           data: error instanceof Error ? error.message : 'Unknown error',
           metadata: {
-            sessionId,
+            sessionId: validatedSessionId,
           },
         };
 
-        pubsub.publish(sessionId, errorEvent);
+        pubsub.publish(validatedSessionId, errorEvent);
       }
     })();
 
-    return NextResponse.json({
+    logger.info({ sessionId: validatedSessionId, messageId: userMessage.id }, 'Stream chat initiated');
+    const response = NextResponse.json({
       messageId: userMessage.id,
-      sessionId,
+      sessionId: validatedSessionId,
       status: 'processing',
     });
+    response.headers.set('x-request-id', requestId);
+    return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 404 });
+      logger.warn({ sessionId: sessionId || 'unknown' }, 'Session not found');
+      return NextResponse.json({ error: error.message, requestId }, { status: 404 });
     }
 
-    return NextResponse.json({ error: 'Failed to process message' }, { status: 500 });
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Failed to process message');
+    return NextResponse.json({ error: 'Failed to process message', requestId }, { status: 500 });
   }
 }
 
