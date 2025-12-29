@@ -12,11 +12,9 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@prisma/adapter-ppg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@supabase/supabase-js": "^2.89.0",
     "next": "^16.1.1",
@@ -30,6 +28,7 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^16.4.7",
     "prisma": "^7.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
