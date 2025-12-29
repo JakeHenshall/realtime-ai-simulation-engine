@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { getOrCreateUserId, checkRateLimit, apiRateLimiter } from '@/lib/rate-limit';
+import { getOrCreateUserId } from '@/lib/auth';
+import { checkRateLimit, apiRateLimiter } from '@/lib/rate-limit';
 import { updateSimulationSchema } from '@/lib/validation';
 
 export async function GET(
