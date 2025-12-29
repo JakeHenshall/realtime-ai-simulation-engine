@@ -25,9 +25,25 @@ export default async function Home() {
 
   return (
     <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-      <h1 style={{ marginBottom: '2rem', fontSize: '2rem', fontWeight: '600' }}>
-        Real-time AI Simulation Engine
-      </h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: '600' }}>
+          Real-time AI Simulation Engine
+        </h1>
+        <Link
+          href="/dashboard"
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: '#111',
+            border: '1px solid #333',
+            borderRadius: '4px',
+            color: '#fff',
+            fontSize: '0.9rem',
+            textDecoration: 'none',
+          }}
+        >
+          Dashboard
+        </Link>
+      </div>
 
       <p style={{ marginBottom: '2rem', color: '#999' }}>
         Select a scenario to begin a simulation session.

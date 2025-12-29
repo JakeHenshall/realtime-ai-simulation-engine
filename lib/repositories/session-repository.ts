@@ -131,6 +131,7 @@ export class SessionRepository {
       include: {
         preset: true,
         metrics: true,
+        analysis: true,
       },
     });
   }
