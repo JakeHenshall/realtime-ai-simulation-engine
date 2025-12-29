@@ -1,9 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { SessionStatus } from '@/generated/prisma/client';
+import { getRequestId } from '@/lib/middleware/request-id';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
+import { createRequestLogger } from '@/lib/logger';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const logger = createRequestLogger(requestId, {
+    method: request.method,
+    path: request.nextUrl.pathname,
+  });
+
   try {
+    // Rate limiting
+    const rateLimitResult = await checkRateLimit(request);
+    if (!rateLimitResult.allowed) {
+      logger.warn('Rate limit exceeded');
+      return createRateLimitResponse(rateLimitResult.msBeforeNext);
+    }
     const sessions = await db.simulationSession.findMany({
       where: {
         status: SessionStatus.COMPLETED,
@@ -89,7 +104,8 @@ export async function GET() {
           )
         : 0;
 
-    return NextResponse.json({
+    logger.info({ sessionCount: sessionsWithDuration.length }, 'Analytics fetched');
+    const response = NextResponse.json({
       sessions: sessionsWithDuration,
       stats: {
         totalCount,
@@ -99,9 +115,12 @@ export async function GET() {
         avgEmpathy,
       },
     });
+    response.headers.set('x-request-id', requestId);
+    return response;
   } catch (error) {
+    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Failed to fetch analytics');
     return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
+      { error: 'Failed to fetch analytics', requestId },
       { status: 500 }
     );
   }
