@@ -5,6 +5,10 @@ import {
   InvalidStateTransitionError,
   SessionNotFoundError,
 } from '@/lib/services/session-service';
+import { analysisQueue } from '@/lib/jobs/analysis-queue';
+import { SessionStatus } from '@/generated/prisma/client';
+// Initialize worker on import
+import '@/lib/jobs/worker';
 
 const sessionService = new SessionService(new SessionRepository());
 
@@ -18,6 +22,15 @@ export async function POST(
     const { error } = body;
 
     const session = await sessionService.endSession(id, error);
+
+    // Queue analysis job for completed sessions (not errors)
+    if (session.status === SessionStatus.COMPLETED) {
+      analysisQueue.enqueue({
+        sessionId: id,
+        attempts: 0,
+        maxAttempts: 3,
+      });
+    }
 
     return NextResponse.json(session);
   } catch (err) {
