@@ -8,7 +8,6 @@ import {
   checkRateLimit,
 } from "@/lib/rate-limit";
 import { triggerActionSchema } from "@/lib/validation";
-import { ActionStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -60,7 +59,7 @@ export async function POST(
         agentId: id,
         type: data.actionType,
         content: JSON.stringify(data.context || {}),
-        status: ActionStatus.PENDING,
+        status: "PENDING",
       },
     });
 

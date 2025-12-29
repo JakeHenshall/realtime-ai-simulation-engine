@@ -3,7 +3,9 @@ import { getRedis } from './redis';
 import { logger } from './logger';
 import { db } from './db';
 import { callAI } from './ai';
-import { ActionType, ActionStatus } from '@prisma/client';
+// Note: ActionType and ActionStatus enums not in schema - using string literals
+type ActionType = 'THINK' | 'COMMUNICATE' | 'OBSERVE' | 'DECIDE';
+type ActionStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 import { publishSimulationEvent } from './realtime';
 
 const redis = getRedis();
@@ -93,7 +95,7 @@ export function startAgentActionWorker() {
             type: actionType,
             content: JSON.stringify(context),
             result: JSON.stringify({ response: aiResponse.content }),
-            status: ActionStatus.COMPLETED,
+            status: 'COMPLETED',
             completedAt: new Date(),
           },
         });
@@ -147,10 +149,10 @@ export function startAgentActionWorker() {
         await db.agentAction.updateMany({
           where: {
             agentId,
-            status: ActionStatus.PROCESSING,
+            status: 'PROCESSING',
           },
           data: {
-            status: ActionStatus.FAILED,
+            status: 'FAILED',
             error: error.message,
             retryCount: { increment: 1 },
           },
@@ -183,13 +185,13 @@ ${agent.personality ? `Personality: ${agent.personality}` : ''}
 Your goal is to act naturally and respond to situations in character.`;
 
   switch (actionType) {
-    case ActionType.THINK:
+    case 'THINK':
       return `${basePrompt}\n\nThink about the current situation and what you should do next.`;
-    case ActionType.COMMUNICATE:
+    case 'COMMUNICATE':
       return `${basePrompt}\n\nCommunicate with other agents or express your thoughts.`;
-    case ActionType.OBSERVE:
+    case 'OBSERVE':
       return `${basePrompt}\n\nObserve what's happening around you and report your observations.`;
-    case ActionType.DECIDE:
+    case 'DECIDE':
       return `${basePrompt}\n\nMake a decision based on the current situation.`;
     default:
       return basePrompt;
@@ -229,13 +231,13 @@ async function updateAnalytics(simulationId: string) {
     db.agentAction.count({
       where: {
         agent: { simulationId },
-        status: ActionStatus.COMPLETED,
+        status: 'COMPLETED',
       },
     }),
     db.agentAction.findMany({
       where: {
         agent: { simulationId },
-        status: ActionStatus.COMPLETED },
+        status: 'COMPLETED' },
       select: { createdAt: true, completedAt: true },
     }),
   ]);
@@ -251,7 +253,7 @@ async function updateAnalytics(simulationId: string) {
   const failedActions = await db.agentAction.count({
     where: {
       agent: { simulationId },
-      status: ActionStatus.FAILED,
+      status: 'FAILED',
     },
   });
 
