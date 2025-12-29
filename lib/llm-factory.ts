@@ -35,5 +35,19 @@ export function createLLMClient(): LLMClient {
   });
 }
 
-export const llmClient = createLLMClient();
+let _llmClient: LLMClient | null = null;
+
+export function getLLMClient(): LLMClient {
+  if (!_llmClient) {
+    _llmClient = createLLMClient();
+  }
+  return _llmClient;
+}
+
+// For backward compatibility
+export const llmClient = new Proxy({} as LLMClient, {
+  get(_target, prop) {
+    return getLLMClient()[prop as keyof LLMClient];
+  },
+});
 

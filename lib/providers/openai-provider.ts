@@ -5,8 +5,11 @@ export class OpenAIProvider implements LLMProvider {
   private client: OpenAI;
 
   constructor(apiKey?: string, baseURL?: string) {
+    // Don't throw during build - validate at runtime instead
     if (!apiKey) {
-      throw new LLMError('OpenAI API key is required', 401, false);
+      // Store undefined to check later
+      this.client = null as any;
+      return;
     }
 
     this.client = new OpenAI({
@@ -16,6 +19,10 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
+    if (!this.client) {
+      throw new LLMError('OpenAI API key is required', 401, false);
+    }
+
     try {
       const response = await this.client.chat.completions.create({
         model: request.model || 'gpt-4o-mini',

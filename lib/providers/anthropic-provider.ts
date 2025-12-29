@@ -5,8 +5,11 @@ export class AnthropicProvider implements LLMProvider {
   private client: Anthropic;
 
   constructor(apiKey?: string) {
+    // Don't throw during build - validate at runtime instead
     if (!apiKey) {
-      throw new LLMError('Anthropic API key is required', 401, false);
+      // Store undefined to check later
+      this.client = null as any;
+      return;
     }
 
     this.client = new Anthropic({
@@ -15,6 +18,10 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async chat(request: LLMRequest): Promise<LLMResponse> {
+    if (!this.client) {
+      throw new LLMError('Anthropic API key is required', 401, false);
+    }
+
     try {
       const response = await this.client.messages.create({
         model: request.model || 'claude-3-5-sonnet-20241022',
