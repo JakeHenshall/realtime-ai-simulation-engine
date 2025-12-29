@@ -23,7 +23,7 @@
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
-    "@types/node": "^20.14.12",
+    "@types/node": "^25.0.3",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "prisma": "^7.2.0",
