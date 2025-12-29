@@ -1,4 +1,4 @@
-import { PressureLevel } from '@prisma/client';
+import { PressureLevel } from '@/generated/prisma/client';
 
 export interface AgentPersona {
   name: string;

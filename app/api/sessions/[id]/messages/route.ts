@@ -62,8 +62,11 @@ export async function GET(
   try {
     const { id } = await params;
     const session = await sessionService.getSession(id);
+    
+    // Type assertion needed because getSession returns session with messages included
+    const sessionWithMessages = session as typeof session & { messages: any[] };
 
-    return NextResponse.json(session.messages);
+    return NextResponse.json(sessionWithMessages.messages || []);
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

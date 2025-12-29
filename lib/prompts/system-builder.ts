@@ -1,4 +1,4 @@
-import { PressureLevel } from '@prisma/client';
+import { PressureLevel } from '@/generated/prisma/client';
 import { SystemPromptConfig, BehaviorModifier } from './types';
 
 const SYSTEM_DOMINANCE_PREFIX = `You are an AI agent in a controlled simulation environment. 
