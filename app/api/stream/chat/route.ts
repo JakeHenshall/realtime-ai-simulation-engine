@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
 
     const userMessage = await sessionService.appendMessage(sessionId, 'user', message);
 
-    const recentMessages = session.messages.slice(-10).map((msg) => ({
+    // Get session with messages for context
+    const sessionWithMessages = await sessionService.getSession(sessionId);
+    const sessionData = sessionWithMessages as any;
+    const recentMessages = (sessionData.messages || []).slice(-10).map((msg: any) => ({
       role: msg.role,
       content: msg.content,
     }));
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
       objective: {
         primary: 'Provide helpful and accurate responses',
       },
-      pressure: session.preset?.pressure ?? 'MEDIUM',
+      pressure: (sessionData.preset?.pressure as any) ?? 'MEDIUM',
       safetyEnforcement: true,
     });
 
