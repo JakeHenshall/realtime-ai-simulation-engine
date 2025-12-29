@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaClient, PressureLevel } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-ppg';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 if (!process.env.DATABASE_URL) {
