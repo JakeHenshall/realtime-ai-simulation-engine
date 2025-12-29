@@ -16,10 +16,12 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "@prisma/adapter-postgres": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@supabase/supabase-js": "^2.89.0",
     "next": "^16.1.1",
+    "openai": "^4.67.3",
     "pg": "^8.13.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
