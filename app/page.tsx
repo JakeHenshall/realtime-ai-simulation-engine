@@ -1,7 +1,86 @@
-export default function Home() {
+import Link from 'next/link';
+
+interface ScenarioPreset {
+  id: string;
+  name: string;
+  description: string | null;
+  pressure: string;
+}
+
+async function getPresets(): Promise<ScenarioPreset[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/presets`, { cache: 'no-store' });
+    if (!res.ok) {
+      return [];
+    }
+    return res.json();
+  } catch (error) {
+    return [];
+  }
+}
+
+export default async function Home() {
+  const presets = await getPresets();
+
   return (
-    <main>
-      <h1>Real-time AI Simulation Engine</h1>
+    <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
+      <h1 style={{ marginBottom: '2rem', fontSize: '2rem', fontWeight: '600' }}>
+        Real-time AI Simulation Engine
+      </h1>
+
+      <p style={{ marginBottom: '2rem', color: '#999' }}>
+        Select a scenario to begin a simulation session.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {presets.length === 0 ? (
+          <p style={{ color: '#666' }}>No scenario presets available.</p>
+        ) : (
+          presets.map((preset) => (
+            <Link
+              key={preset.id}
+              href={`/simulation?presetId=${preset.id}`}
+              style={{
+                display: 'block',
+                padding: '1.5rem',
+                border: '1px solid #333',
+                borderRadius: '4px',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#555';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#333';
+              }}
+            >
+              <h2 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>
+                {preset.name}
+              </h2>
+              {preset.description && (
+                <p style={{ marginBottom: '0.5rem', color: '#999', fontSize: '0.9rem' }}>
+                  {preset.description}
+                </p>
+              )}
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.75rem',
+                  backgroundColor: '#222',
+                  borderRadius: '2px',
+                  color: '#aaa',
+                }}
+              >
+                {preset.pressure} pressure
+              </span>
+            </Link>
+          ))
+        )}
+      </div>
     </main>
   );
 }
