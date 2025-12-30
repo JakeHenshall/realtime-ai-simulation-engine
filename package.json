@@ -25,12 +25,12 @@
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "next": "^16.1.1",
-    "openai": "^4.67.3",
+    "openai": "^6.15.0",
     "pino": "^9.5.0",
     "rate-limiter-flexible": "^5.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "zod": "^3.23.8"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
