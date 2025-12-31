@@ -5,6 +5,8 @@ import { getRequestId } from '@/lib/middleware/request-id';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
 import { createRequestLogger } from '@/lib/logger';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const requestId = getRequestId(request);
   const logger = createRequestLogger(requestId, {
@@ -125,4 +127,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

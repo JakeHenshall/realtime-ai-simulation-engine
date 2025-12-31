@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 
 interface ScenarioPreset {
   id: string;
@@ -9,7 +10,12 @@ interface ScenarioPreset {
 
 async function getPresets(): Promise<ScenarioPreset[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const headersList = await headers();
+    const host = headersList.get('host');
+    const protocol = headersList.get('x-forwarded-proto') ?? 'http';
+    const baseUrl = host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/presets`, { cache: 'no-store' });
     if (!res.ok) {
       return [];
@@ -65,12 +71,6 @@ export default async function Home() {
                 textDecoration: 'none',
                 color: 'inherit',
                 transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#555';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#333';
               }}
             >
               <h2 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>

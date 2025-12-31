@@ -19,28 +19,33 @@ The application is built on Next.js 16 with a modular architecture that separate
 ### Core Components
 
 #### Database Layer
+
 - **Prisma Schema**: Defines models for `SimulationSession`, `SimulationMessage`, `SessionMetrics`, `SessionAnalysis`, and `ScenarioPreset`
 - **Repository Pattern**: Session repository abstracts database operations
 - **SQLite Default**: Uses SQLite for local development, easily configurable for PostgreSQL
 
 #### API Layer
+
 - **REST Endpoints**: Standard CRUD operations for sessions, presets, analytics
 - **Streaming Endpoints**: SSE endpoints for real-time session updates
 - **Rate Limiting**: Redis-based rate limiting for API, AI, and simulation creation
 - **Middleware**: Request ID tracking, API wrappers, error handling
 
 #### AI Integration
+
 - **Provider Factory**: Pluggable LLM provider system (OpenAI, Anthropic)
 - **Streaming Support**: Real-time token streaming for chat interactions
 - **Caching**: Redis-based response caching for AI requests
 - **Prompt Composition**: Dynamic system and user prompt building
 
 #### Real-time System
+
 - **Redis Pub/Sub**: Event publishing for simulation updates
 - **SSE Streams**: Server-Sent Events for client-side real-time updates
 - **Session Management**: State tracking (PENDING, ACTIVE, PAUSED, COMPLETED, ERROR)
 
 #### Analysis & Metrics
+
 - **Background Jobs**: In-process queue for session analysis
 - **Metrics Calculation**: Evasiveness, contradiction, sentiment analysis
 - **Session Analysis**: Post-session AI-powered analysis and insights
@@ -64,47 +69,49 @@ The application is built on Next.js 16 with a modular architecture that separate
 ### Setup Steps
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd realtime-ai-simulation-engine
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Set up environment variables**
-   
+
    Create a `.env.local` file in the root directory with the following variables:
-   
+
    ```bash
    # Database
    DATABASE_URL="file:./prisma/dev.db"
-   
+
    # Redis
    REDIS_URL="redis://localhost:6379"
-   
+
    # Authentication
    JWT_SECRET="your-secret-key-change-in-production"
-   
+
    # LLM Provider (choose one)
    LLM_PROVIDER="openai"
    OPENAI_API_KEY="your-openai-api-key"
    OPENAI_BASE_URL="https://api.openai.com/v1"
-   
+
    # OR
    LLM_PROVIDER="anthropic"
    ANTHROPIC_API_KEY="your-anthropic-api-key"
-   
+
    # Optional LLM Configuration
    LLM_MODEL="gpt-4"
    LLM_TIMEOUT="30000"
-   
+
    # Supabase (if using Supabase features)
    NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
    NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
-   
+
    # Application
    NEXT_PUBLIC_BASE_URL="http://localhost:3000"
    LOG_LEVEL="info"
@@ -112,23 +119,26 @@ The application is built on Next.js 16 with a modular architecture that separate
    ```
 
 4. **Initialise the database**
+
    ```bash
    npm run db:push
    npm run db:seed
    ```
 
 5. **Start Redis** (if not running as a service)
+
    ```bash
    redis-server
    ```
 
 6. **Start the development server**
+
    ```bash
    npm run dev
    ```
 
 7. **Access the application**
-   
+
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Development Scripts
@@ -154,20 +164,20 @@ The application is built on Next.js 16 with a modular architecture that separate
 ### Deployment Steps
 
 1. **Prepare your repository**
-   
+
    Ensure all code is committed and pushed to your Git repository.
 
 2. **Set up Vercel project**
-   
+
    - Go to [Vercel Dashboard](https://vercel.com/dashboard)
    - Click "Add New Project"
    - Import your Git repository
    - Vercel will auto-detect Next.js
 
 3. **Configure environment variables**
-   
+
    In the Vercel project settings, add all required environment variables:
-   
+
    - `DATABASE_URL` - Your production database connection string
    - `REDIS_URL` - Your Redis connection URL
    - `JWT_SECRET` - Strong random secret (generate with `openssl rand -base64 32`)
@@ -183,32 +193,35 @@ The application is built on Next.js 16 with a modular architecture that separate
    - `NODE_ENV` - `production`
 
 4. **Configure build settings**
-   
+
    Vercel should auto-detect the build command, but verify:
+
    - Build Command: `npm run build`
    - Output Directory: `.next`
    - Install Command: `npm install`
 
 5. **Set up database migrations**
-   
+
    For production databases, run migrations before deployment:
+
    ```bash
    npx prisma migrate deploy
    ```
-   
+
    Or use Vercel's build command to include migrations:
+
    ```bash
    prisma generate && prisma migrate deploy && next build
    ```
 
 6. **Deploy**
-   
+
    - Click "Deploy" in Vercel
    - Wait for build to complete
    - Your application will be live at `https://your-project.vercel.app`
 
 7. **Post-deployment**
-   
+
    - Seed initial data if needed: `npm run db:seed` (run manually or via Vercel CLI)
    - Verify environment variables are set correctly
    - Test real-time features with Redis connection
@@ -232,27 +245,27 @@ The application is built on Next.js 16 with a modular architecture that separate
 
 ### Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | Database connection string | `file:./prisma/dev.db` (SQLite) or `postgresql://user:pass@host:5432/db` |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` or `rediss://user:pass@host:6380` |
-| `JWT_SECRET` | Secret key for JWT token signing | Random 32+ character string |
-| `LLM_PROVIDER` | LLM provider to use | `openai` or `anthropic` |
-| `OPENAI_API_KEY` | OpenAI API key (if using OpenAI) | `sk-...` |
-| `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic) | `sk-ant-...` |
+| Variable            | Description                            | Example                                                                  |
+| ------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
+| `DATABASE_URL`      | Database connection string             | `file:./prisma/dev.db` (SQLite) or `postgresql://user:pass@host:5432/db` |
+| `REDIS_URL`         | Redis connection URL                   | `redis://localhost:6379` or `rediss://user:pass@host:6380`               |
+| `JWT_SECRET`        | Secret key for JWT token signing       | Random 32+ character string                                              |
+| `LLM_PROVIDER`      | LLM provider to use                    | `openai` or `anthropic`                                                  |
+| `OPENAI_API_KEY`    | OpenAI API key (if using OpenAI)       | `sk-...`                                                                 |
+| `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic) | `sk-ant-...`                                                             |
 
 ### Optional Variables
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `OPENAI_BASE_URL` | Custom OpenAI API endpoint | `https://api.openai.com/v1` | `https://api.openai.com/v1` |
-| `LLM_MODEL` | Default LLM model name | Provider default | `gpt-4`, `claude-3-opus-20240229` |
-| `LLM_TIMEOUT` | LLM request timeout (ms) | Provider default | `30000` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | - | `https://xxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | - | `eyJ...` |
-| `NEXT_PUBLIC_BASE_URL` | Public base URL for API calls | `http://localhost:3000` | `https://your-app.vercel.app` |
-| `LOG_LEVEL` | Logging level | `info` | `debug`, `info`, `warn`, `error` |
-| `NODE_ENV` | Node environment | `development` | `production`, `development` |
+| Variable                        | Description                   | Default                     | Example                           |
+| ------------------------------- | ----------------------------- | --------------------------- | --------------------------------- |
+| `OPENAI_BASE_URL`               | Custom OpenAI API endpoint    | `https://api.openai.com/v1` | `https://api.openai.com/v1`       |
+| `LLM_MODEL`                     | Default LLM model name        | Provider default            | `gpt-4`, `claude-3-opus-20240229` |
+| `LLM_TIMEOUT`                   | LLM request timeout (ms)      | Provider default            | `30000`                           |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL          | -                           | `https://xxx.supabase.co`         |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key        | -                           | `eyJ...`                          |
+| `NEXT_PUBLIC_BASE_URL`          | Public base URL for API calls | `http://localhost:3000`     | `https://your-app.vercel.app`     |
+| `LOG_LEVEL`                     | Logging level                 | `info`                      | `debug`, `info`, `warn`, `error`  |
+| `NODE_ENV`                      | Node environment              | `development`               | `production`, `development`       |
 
 ### Environment Variable Notes
 
@@ -288,4 +301,3 @@ This software is provided "as is" without warranty of any kind, express or impli
 - **Monitoring**: Implement proper logging, error tracking (Sentry, etc.), and monitoring (Vercel Analytics, etc.) for production deployments.
 
 Use this software responsibly and in accordance with the terms of service of all third-party services (OpenAI, Anthropic, Vercel, etc.).
-
