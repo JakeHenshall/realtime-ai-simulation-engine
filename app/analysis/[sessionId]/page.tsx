@@ -237,22 +237,15 @@ export default function AnalysisPage() {
                           max: 100,
                           min: 0,
                           ticks: {
-                            stepSize: 20,
-                            color: '#b0b0b0',
-                            font: {
-                              size: 12,
-                              weight: '500' as const,
-                            },
-                            backdropColor: 'transparent',
-                            z: 10,
+                            display: false,
                           },
                           grid: {
-                            color: 'rgba(200, 200, 200, 0.3)',
+                            color: 'rgba(255, 255, 255, 0.2)',
                             lineWidth: 1,
                             circular: true,
                           },
                           angleLines: {
-                            color: 'rgba(200, 200, 200, 0.2)',
+                            color: 'rgba(255, 255, 255, 0.2)',
                             lineWidth: 1,
                           },
                           pointLabels: {
