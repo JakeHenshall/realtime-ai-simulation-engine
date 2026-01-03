@@ -208,10 +208,14 @@ The application is built on Next.js 16 with a modular architecture that separate
    npx prisma migrate deploy
    ```
 
-   Or use Vercel's build command to include migrations:
+   **Note**: For Vercel builds, migrations should be run separately. The build command only generates the Prisma client:
 
    ```bash
-   prisma generate && prisma migrate deploy && next build
+   # Build command (runs automatically)
+   prisma generate && next build
+   
+   # Run migrations separately after deployment
+   npx prisma migrate deploy
    ```
 
 6. **Deploy**
