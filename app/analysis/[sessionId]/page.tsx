@@ -234,7 +234,7 @@ export default function AnalysisPage() {
                       scales: {
                         r: {
                           beginAtZero: true,
-                          max: 100,
+                          max: 120,
                           min: 0,
                           ticks: {
                             display: false,
@@ -254,7 +254,7 @@ export default function AnalysisPage() {
                               size: 14,
                               weight: '600' as const,
                             },
-                            padding: 15,
+                            padding: 20,
                           },
                         },
                       },
