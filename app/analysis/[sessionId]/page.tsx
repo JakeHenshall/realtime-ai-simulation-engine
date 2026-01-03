@@ -12,10 +12,18 @@ interface Analysis {
   createdAt: string;
 }
 
+interface Message {
+  id: string;
+  role: string;
+  content: string;
+  timestamp: string;
+}
+
 interface Session {
   id: string;
   name: string;
   status: string;
+  messages?: Message[];
 }
 
 export default function AnalysisPage() {
@@ -146,6 +154,29 @@ export default function AnalysisPage() {
             <div style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: '#111', borderRadius: '4px' }}>
               <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Summary</h2>
               <p style={{ lineHeight: '1.6', color: '#ccc' }}>{analysis.summary}</p>
+            </div>
+          )}
+
+          {session.messages && session.messages.length > 0 && (
+            <div style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: '#111', borderRadius: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Conversation</h2>
+                <Link
+                  href={`/analysis/${sessionId}/conversation`}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#222',
+                    border: '1px solid #333',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    fontSize: '0.9rem',
+                    display: 'inline-block',
+                  }}
+                >
+                  View Conversation
+                </Link>
+              </div>
             </div>
           )}
 
