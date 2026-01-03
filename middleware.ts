@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,6 +33,21 @@ export const createClient = (request: NextRequest) => {
     },
   );
 
-  return supabaseResponse
+  return { supabase, response: supabaseResponse };
+};
+
+export async function middleware(request: NextRequest) {
+  const { supabase, response } = createClient(request);
+  
+  // Refresh session if expired - this ensures the user's session is kept in sync
+  await supabase.auth.getUser();
+  
+  return response;
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };
 
