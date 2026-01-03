@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -274,7 +276,48 @@ function SimulationContent() {
             <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>
               {msg.role === 'user' ? 'You' : 'Assistant'}
             </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
+            {msg.role === 'assistant' ? (
+              <div
+                style={{
+                  color: '#fff',
+                  lineHeight: '1.6',
+                }}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <p style={{ marginBottom: '0.75rem', marginTop: 0 }}>{children}</p>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 600, color: '#fff' }}>{children}</strong>,
+                    em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+                    ul: ({ children }) => <ul style={{ marginBottom: '0.75rem', paddingLeft: '1.5rem' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ marginBottom: '0.75rem', paddingLeft: '1.5rem' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: '0.25rem' }}>{children}</li>,
+                    code: ({ children, className }) => {
+                      const isInline = !className;
+                      return isInline ? (
+                        <code style={{ backgroundColor: '#333', padding: '0.125rem 0.25rem', borderRadius: '3px', fontSize: '0.9em' }}>{children}</code>
+                      ) : (
+                        <code style={{ display: 'block', backgroundColor: '#333', padding: '0.75rem', borderRadius: '4px', overflowX: 'auto', fontSize: '0.9em' }}>{children}</code>
+                      );
+                    },
+                    blockquote: ({ children }) => (
+                      <blockquote style={{ borderLeft: '3px solid #555', paddingLeft: '1rem', marginLeft: 0, marginBottom: '0.75rem', color: '#ccc' }}>
+                        {children}
+                      </blockquote>
+                    ),
+                    a: ({ href, children }) => (
+                      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff', textDecoration: 'underline' }}>
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <div style={{ whiteSpace: 'pre-wrap', color: '#fff' }}>{msg.content}</div>
+            )}
           </div>
         ))}
 
@@ -290,8 +333,43 @@ function SimulationContent() {
             <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>
               Assistant
             </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>
-              {currentStream}
+            <div
+              style={{
+                color: '#fff',
+                lineHeight: '1.6',
+              }}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p style={{ marginBottom: '0.75rem', marginTop: 0 }}>{children}</p>,
+                  strong: ({ children }) => <strong style={{ fontWeight: 600, color: '#fff' }}>{children}</strong>,
+                  em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+                  ul: ({ children }) => <ul style={{ marginBottom: '0.75rem', paddingLeft: '1.5rem' }}>{children}</ul>,
+                  ol: ({ children }) => <ol style={{ marginBottom: '0.75rem', paddingLeft: '1.5rem' }}>{children}</ol>,
+                  li: ({ children }) => <li style={{ marginBottom: '0.25rem' }}>{children}</li>,
+                  code: ({ children, className }) => {
+                    const isInline = !className;
+                    return isInline ? (
+                      <code style={{ backgroundColor: '#333', padding: '0.125rem 0.25rem', borderRadius: '3px', fontSize: '0.9em' }}>{children}</code>
+                    ) : (
+                      <code style={{ display: 'block', backgroundColor: '#333', padding: '0.75rem', borderRadius: '4px', overflowX: 'auto', fontSize: '0.9em' }}>{children}</code>
+                    );
+                  },
+                  blockquote: ({ children }) => (
+                    <blockquote style={{ borderLeft: '3px solid #555', paddingLeft: '1rem', marginLeft: 0, marginBottom: '0.75rem', color: '#ccc' }}>
+                      {children}
+                    </blockquote>
+                  ),
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff', textDecoration: 'underline' }}>
+                      {children}
+                    </a>
+                  ),
+                }}
+              >
+                {currentStream}
+              </ReactMarkdown>
               <span style={{ opacity: 0.5 }}>▊</span>
             </div>
           </div>
