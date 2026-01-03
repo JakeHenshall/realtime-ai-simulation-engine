@@ -194,29 +194,27 @@ The application is built on Next.js 16 with a modular architecture that separate
 
 4. **Configure build settings**
 
-   Vercel should auto-detect the build command, but verify:
+   Vercel will automatically use the `vercel-build` script if it exists in `package.json`, otherwise it uses `npm run build`:
 
-   - Build Command: `npm run build`
+   - Build Command: `npm run vercel-build` (or `npm run build`)
    - Output Directory: `.next`
    - Install Command: `npm install`
 
+   The `vercel-build` script runs `prisma generate && next build` which generates the Prisma client without requiring a database connection.
+
 5. **Set up database migrations**
 
-   For production databases, run migrations before deployment:
+   For production databases, run migrations after the first deployment:
 
    ```bash
-   npx prisma migrate deploy
-   ```
-
-   **Note**: For Vercel builds, migrations should be run separately. The build command only generates the Prisma client:
-
-   ```bash
-   # Build command (runs automatically)
-   prisma generate && next build
+   # Using the npm script
+   npm run db:migrate:deploy
    
-   # Run migrations separately after deployment
+   # Or directly
    npx prisma migrate deploy
    ```
+
+   **Note**: Migrations are run separately from the build process. The build command (`vercel-build`) only generates the Prisma client and builds the Next.js app. Run migrations after deployment using one of the methods above.
 
 6. **Deploy**
 
