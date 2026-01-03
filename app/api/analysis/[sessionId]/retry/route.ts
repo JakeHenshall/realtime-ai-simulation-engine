@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { analysisQueue } from '@/lib/jobs/analysis-queue';
-import { SessionStatus } from '@/generated/prisma/client';
+import { SessionStatus } from '@prisma/client';
 import { getRequestId } from '@/lib/middleware/request-id';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
 import { createRequestLogger } from '@/lib/logger';

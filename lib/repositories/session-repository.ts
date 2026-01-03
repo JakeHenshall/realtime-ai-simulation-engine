@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { SessionStatus, SimulationSession, SimulationMessage } from '@/generated/prisma/client';
+import { SessionStatus, SimulationSession, SimulationMessage } from '@prisma/client';
 
 export interface CreateSessionData {
   name: string;

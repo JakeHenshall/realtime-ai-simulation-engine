@@ -1,4 +1,4 @@
-import { SessionStatus } from '@/generated/prisma/client';
+import { SessionStatus } from '@prisma/client';
 import { SessionRepository } from '@/lib/repositories/session-repository';
 
 export class InvalidStateTransitionError extends Error {

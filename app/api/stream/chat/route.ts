@@ -5,7 +5,7 @@ import { SessionNotFoundError } from '@/lib/services/session-service';
 import { streamingLLM } from '@/lib/streaming-llm';
 import { PromptComposer } from '@/lib/prompts/prompt-composer';
 import { pubsub, StreamEvent } from '@/lib/pubsub';
-import { SessionStatus } from '@/generated/prisma/client';
+import { SessionStatus } from '@prisma/client';
 import { metricsAnalyzer } from '@/lib/metrics/analyzer';
 import { behaviorAdapter } from '@/lib/metrics/behavior-adapter';
 

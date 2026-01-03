@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { getRequestId } from '@/lib/middleware/request-id';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
 import { createRequestLogger } from '@/lib/logger';
-import { PressureLevel } from '@/generated/prisma/client';
+import { PressureLevel } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
