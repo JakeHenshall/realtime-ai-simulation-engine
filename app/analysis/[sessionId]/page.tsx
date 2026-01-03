@@ -186,6 +186,11 @@ export default function AnalysisPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                 {(['clarity', 'accuracy', 'empathy'] as const).map((key) => {
                   const score = insights.scores![key];
+                  const radius = 50;
+                  const circumference = 2 * Math.PI * radius;
+                  const offset = circumference - (score / 100) * circumference;
+                  const color = score >= 70 ? '#4a9' : score >= 40 ? '#fa4' : '#f44';
+                  
                   return (
                     <div
                       key={key}
@@ -194,20 +199,59 @@ export default function AnalysisPage() {
                         backgroundColor: '#111',
                         borderRadius: '4px',
                         textAlign: 'center',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
                       }}
                     >
-                      <div style={{ fontSize: '0.9rem', color: '#999', marginBottom: '0.5rem', textTransform: 'capitalize' }}>
+                      <div style={{ fontSize: '0.9rem', color: '#999', marginBottom: '1rem', textTransform: 'capitalize' }}>
                         {key}
                       </div>
-                      <div style={{ fontSize: '2rem', fontWeight: '600' }}>{score}</div>
-                      <div style={{ marginTop: '0.5rem', height: '4px', backgroundColor: '#222', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+                        <svg
+                          width="120"
+                          height="120"
+                          style={{ transform: 'rotate(-90deg)' }}
+                        >
+                          {/* Background circle */}
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r={radius}
+                            fill="none"
+                            stroke="#222"
+                            strokeWidth="8"
+                          />
+                          {/* Progress circle */}
+                          <circle
+                            cx="60"
+                            cy="60"
+                            r={radius}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="8"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={offset}
+                            strokeLinecap="round"
+                            style={{
+                              transition: 'stroke-dashoffset 0.5s ease-in-out',
+                            }}
+                          />
+                        </svg>
+                        {/* Score text in center */}
                         <div
                           style={{
-                            width: `${score}%`,
-                            height: '100%',
-                            backgroundColor: score >= 70 ? '#4a9' : score >= 40 ? '#fa4' : '#f44',
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: '1.75rem',
+                            fontWeight: '600',
+                            color: '#fff',
                           }}
-                        />
+                        >
+                          {score}
+                        </div>
                       </div>
                     </div>
                   );
