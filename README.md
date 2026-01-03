@@ -179,6 +179,9 @@ The application is built on Next.js 16 with a modular architecture that separate
    In the Vercel project settings, add all required environment variables:
 
    - `DATABASE_URL` - Your production database connection string
+     - **For Supabase**: Use the connection pooler URL (port 6543) from Supabase Dashboard → Settings → Database → Connection Pooling
+     - **Example**: `postgresql://postgres:[PASSWORD]@db.xxx.supabase.co:6543/postgres?pgbouncer=true`
+     - **Note**: Free tier databases may pause after inactivity - wake them up by visiting the Supabase dashboard
    - `REDIS_URL` - Your Redis connection URL
    - `JWT_SECRET` - Strong random secret (generate with `openssl rand -base64 32`)
    - `LLM_PROVIDER` - `openai` or `anthropic`
