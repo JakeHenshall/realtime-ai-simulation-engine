@@ -162,8 +162,28 @@ function SimulationContent() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `Failed to send message: ${res.status} ${res.statusText}`);
+        const rawError = await res.text();
+        let message = `Failed to send message: ${res.status} ${res.statusText}`;
+
+        if (rawError) {
+          try {
+            const parsed = JSON.parse(rawError) as { error?: string };
+            if (parsed.error) message = parsed.error;
+          } catch {
+            message = rawError;
+          }
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: 'system',
+            content: `Error: ${message}`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        return;
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -333,4 +353,3 @@ export default function SimulationPage() {
     </Suspense>
   );
 }
-
