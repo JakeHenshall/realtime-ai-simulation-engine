@@ -130,7 +130,7 @@ export class SystemPromptBuilder {
       );
     }
 
-    const systemInstructionCount = (prompt.match(/MUST|CRITICAL|system/i) || []).length;
+    const systemInstructionCount = (prompt.match(/MUST|CRITICAL|system/gi) || []).length;
     if (systemInstructionCount < 2) {
       throw new Error(
         'System prompt must contain sufficient system-level instructions for safety'
@@ -138,4 +138,3 @@ export class SystemPromptBuilder {
     }
   }
 }
-
