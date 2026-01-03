@@ -202,7 +202,7 @@ export default function AnalysisPage() {
           {insights?.scores && (
             <div style={{ marginBottom: '2rem' }}>
               <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Scores</h2>
-              <div style={{ padding: '1.5rem', backgroundColor: '#111', borderRadius: '4px', display: 'flex', justifyContent: 'center' }}>
+              <div style={{ padding: '2rem', backgroundColor: '#0a1629', borderRadius: '4px', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ maxWidth: '500px', width: '100%' }}>
                   <Radar
                     data={{
@@ -215,13 +215,16 @@ export default function AnalysisPage() {
                             insights.scores.accuracy,
                             insights.scores.empathy,
                           ],
-                          backgroundColor: 'rgba(138, 43, 226, 0.2)',
+                          backgroundColor: 'rgba(138, 43, 226, 0.3)',
                           borderColor: 'rgba(138, 43, 226, 1)',
-                          borderWidth: 2,
-                          pointBackgroundColor: 'rgba(138, 43, 226, 1)',
-                          pointBorderColor: '#fff',
+                          borderWidth: 3,
+                          pointBackgroundColor: '#fff',
+                          pointBorderColor: 'rgba(138, 43, 226, 1)',
+                          pointBorderWidth: 2,
+                          pointRadius: 5,
                           pointHoverBackgroundColor: '#fff',
                           pointHoverBorderColor: 'rgba(138, 43, 226, 1)',
+                          pointHoverRadius: 7,
                         },
                       ],
                     }}
@@ -232,22 +235,33 @@ export default function AnalysisPage() {
                         r: {
                           beginAtZero: true,
                           max: 100,
+                          min: 0,
                           ticks: {
                             stepSize: 20,
-                            color: '#999',
+                            color: '#b0b0b0',
                             font: {
-                              size: 11,
-                            },
-                          },
-                          grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                          },
-                          pointLabels: {
-                            color: '#ccc',
-                            font: {
-                              size: 13,
+                              size: 12,
                               weight: '500' as const,
                             },
+                            backdropColor: 'transparent',
+                            z: 10,
+                          },
+                          grid: {
+                            color: 'rgba(200, 200, 200, 0.3)',
+                            lineWidth: 1,
+                            circular: true,
+                          },
+                          angleLines: {
+                            color: 'rgba(200, 200, 200, 0.2)',
+                            lineWidth: 1,
+                          },
+                          pointLabels: {
+                            color: '#fff',
+                            font: {
+                              size: 14,
+                              weight: '600' as const,
+                            },
+                            padding: 15,
                           },
                         },
                       },
@@ -256,11 +270,19 @@ export default function AnalysisPage() {
                           display: false,
                         },
                         tooltip: {
-                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.9)',
                           titleColor: '#fff',
                           bodyColor: '#fff',
                           borderColor: 'rgba(138, 43, 226, 1)',
-                          borderWidth: 1,
+                          borderWidth: 2,
+                          padding: 12,
+                          titleFont: {
+                            size: 14,
+                            weight: '600' as const,
+                          },
+                          bodyFont: {
+                            size: 13,
+                          },
                           callbacks: {
                             label: (context) => {
                               return `${context.label}: ${context.parsed.r}%`;
