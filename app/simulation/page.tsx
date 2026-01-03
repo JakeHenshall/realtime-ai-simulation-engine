@@ -161,9 +161,22 @@ function SimulationContent() {
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to send message');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Failed to send message: ${res.status} ${res.statusText}`);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Show error to user
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: 'system',
+          content: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
