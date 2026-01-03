@@ -26,6 +26,7 @@ export default function AnalysisPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [insights, setInsights] = useState<{
     scores?: { clarity: number; accuracy: number; empathy: number };
     insights?: { strengths: string[]; weaknesses: string[]; recommendations: string[] };
@@ -69,6 +70,18 @@ export default function AnalysisPage() {
     }
   };
 
+  const retryAnalysis = async () => {
+    if (isRetrying) return;
+    setIsRetrying(true);
+    try {
+      await fetch(`/api/analysis/${sessionId}/retry`, { method: 'POST' });
+    } catch (error) {
+      console.error('Error retrying analysis:', error);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   if (loading) {
     return (
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
@@ -107,6 +120,24 @@ export default function AnalysisPage() {
           </p>
           <p style={{ color: '#555', fontSize: '0.9rem' }}>
             This page will automatically refresh when the analysis is ready.
+          </p>
+          <button
+            onClick={retryAnalysis}
+            disabled={isRetrying}
+            style={{
+              marginTop: '1.5rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#222',
+              border: '1px solid #333',
+              borderRadius: '4px',
+              color: '#ccc',
+              cursor: isRetrying ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isRetrying ? 'Retrying...' : 'Retry analysis'}
+          </button>
+          <p style={{ marginTop: '0.75rem', color: '#555', fontSize: '0.85rem' }}>
+            If this keeps spinning, verify your AI provider API key and retry.
           </p>
         </div>
       ) : (
@@ -201,4 +232,3 @@ export default function AnalysisPage() {
     </main>
   );
 }
-
