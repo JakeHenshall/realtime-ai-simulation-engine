@@ -14,7 +14,17 @@ function getPrismaClient(): PrismaClient {
     throw new Error('DATABASE_URL environment variable is not set');
   }
 
-  const pool = new Pool({ connectionString });
+  // Configure connection pool for serverless environments
+  const pool = new Pool({
+    connectionString,
+    // Connection pool settings for serverless
+    max: 1, // Limit connections per serverless function instance
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    // Enable SSL for Supabase
+    ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
+  });
+
   const adapter = new PrismaPg(pool);
 
   return new PrismaClient({

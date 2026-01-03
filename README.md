@@ -262,7 +262,7 @@ The application is built on Next.js 16 with a modular architecture that separate
 
 | Variable            | Description                            | Example                                                                  |
 | ------------------- | -------------------------------------- | ------------------------------------------------------------------------ |
-| `DATABASE_URL`      | Database connection string             | `file:./prisma/dev.db` (SQLite) or `postgresql://user:pass@host:5432/db` |
+| `DATABASE_URL`      | Database connection string             | `file:./prisma/dev.db` (SQLite) or `postgresql://user:pass@host:5432/db`<br/>**For Supabase on Vercel**: Use connection pooler (port 6543) or transaction pooler (port 5432 with `?pgbouncer=true`) |
 | `REDIS_URL`         | Redis connection URL                   | `redis://localhost:6379` or `rediss://user:pass@host:6380`               |
 | `JWT_SECRET`        | Secret key for JWT token signing       | Random 32+ character string                                              |
 | `LLM_PROVIDER`      | LLM provider to use                    | `openai` or `anthropic`                                                  |
