@@ -16,12 +16,21 @@ async function getPresets(): Promise<ScenarioPreset[]> {
     const baseUrl = host
       ? `${protocol}://${host}`
       : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const res = await fetch(`${baseUrl}/api/presets`, { cache: 'no-store' });
+    const res = await fetch(`${baseUrl}/api/presets`, { 
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
     if (!res.ok) {
+      console.error(`Failed to fetch presets: ${res.status} ${res.statusText}`);
+      const errorText = await res.text().catch(() => 'Unknown error');
+      console.error('Error response:', errorText);
       return [];
     }
     return res.json();
   } catch (error) {
+    console.error('Error fetching presets:', error);
     return [];
   }
 }

@@ -76,9 +76,17 @@ export async function GET(request: NextRequest) {
     response.headers.set('x-request-id', requestId);
     return response;
   } catch (error) {
-    logger.error({ error: error instanceof Error ? error.message : 'Unknown error' }, 'Failed to fetch presets');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error({ error: errorMessage, stack: errorStack }, 'Failed to fetch presets');
+    
+    // Return detailed error in development, generic in production
     return NextResponse.json(
-      { error: 'Failed to fetch presets', requestId },
+      { 
+        error: 'Failed to fetch presets', 
+        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+        requestId 
+      },
       { status: 500 }
     );
   }

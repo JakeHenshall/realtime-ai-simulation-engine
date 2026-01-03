@@ -204,17 +204,30 @@ The application is built on Next.js 16 with a modular architecture that separate
 
 5. **Set up database migrations**
 
+   **IMPORTANT**: Database migrations MUST be run before the app will work properly. The app requires database tables to exist.
+
    For production databases, run migrations after the first deployment:
 
    ```bash
-   # Using the npm script
+   # Option 1: Via Vercel CLI (recommended)
+   vercel env pull .env.local
    npm run db:migrate:deploy
    
-   # Or directly
+   # Option 2: Using the npm script directly (if DATABASE_URL is set)
+   npm run db:migrate:deploy
+   
+   # Option 3: Direct command
    npx prisma migrate deploy
    ```
 
-   **Note**: Migrations are run separately from the build process. The build command (`vercel-build`) only generates the Prisma client and builds the Next.js app. Run migrations after deployment using one of the methods above.
+   **Note**: Migrations are run separately from the build process. The build command (`vercel-build`) only generates the Prisma client and builds the Next.js app. 
+
+   **After running migrations, seed the database:**
+   ```bash
+   npm run db:seed
+   ```
+
+   This will create the initial scenario presets that the app needs to function.
 
 6. **Deploy**
 
