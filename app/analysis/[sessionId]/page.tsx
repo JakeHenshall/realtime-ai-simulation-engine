@@ -3,6 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Radar } from 'react-chartjs-2';
+
+ChartJS.register(
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend
+);
 
 interface Analysis {
   id: string;
@@ -183,79 +202,75 @@ export default function AnalysisPage() {
           {insights?.scores && (
             <div style={{ marginBottom: '2rem' }}>
               <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Scores</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                {(['clarity', 'accuracy', 'empathy'] as const).map((key) => {
-                  const score = insights.scores![key];
-                  const radius = 50;
-                  const circumference = 2 * Math.PI * radius;
-                  const offset = circumference - (score / 100) * circumference;
-                  const color = score >= 70 ? '#4a9' : score >= 40 ? '#fa4' : '#f44';
-                  
-                  return (
-                    <div
-                      key={key}
-                      style={{
-                        padding: '1.5rem',
-                        backgroundColor: '#111',
-                        borderRadius: '4px',
-                        textAlign: 'center',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div style={{ fontSize: '0.9rem', color: '#999', marginBottom: '1rem', textTransform: 'capitalize' }}>
-                        {key}
-                      </div>
-                      <div style={{ position: 'relative', width: '120px', height: '120px' }}>
-                        <svg
-                          width="120"
-                          height="120"
-                          style={{ transform: 'rotate(-90deg)' }}
-                        >
-                          {/* Background circle */}
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r={radius}
-                            fill="none"
-                            stroke="#222"
-                            strokeWidth="8"
-                          />
-                          {/* Progress circle */}
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r={radius}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth="8"
-                            strokeDasharray={circumference}
-                            strokeDashoffset={offset}
-                            strokeLinecap="round"
-                            style={{
-                              transition: 'stroke-dashoffset 0.5s ease-in-out',
-                            }}
-                          />
-                        </svg>
-                        {/* Score text in center */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            fontSize: '1.75rem',
-                            fontWeight: '600',
-                            color: '#fff',
-                          }}
-                        >
-                          {score}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ padding: '1.5rem', backgroundColor: '#111', borderRadius: '4px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ maxWidth: '500px', width: '100%' }}>
+                  <Radar
+                    data={{
+                      labels: ['Clarity', 'Accuracy', 'Empathy'],
+                      datasets: [
+                        {
+                          label: 'Performance Scores',
+                          data: [
+                            insights.scores.clarity,
+                            insights.scores.accuracy,
+                            insights.scores.empathy,
+                          ],
+                          backgroundColor: 'rgba(138, 43, 226, 0.2)',
+                          borderColor: 'rgba(138, 43, 226, 1)',
+                          borderWidth: 2,
+                          pointBackgroundColor: 'rgba(138, 43, 226, 1)',
+                          pointBorderColor: '#fff',
+                          pointHoverBackgroundColor: '#fff',
+                          pointHoverBorderColor: 'rgba(138, 43, 226, 1)',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      scales: {
+                        r: {
+                          beginAtZero: true,
+                          max: 100,
+                          ticks: {
+                            stepSize: 20,
+                            color: '#999',
+                            font: {
+                              size: 11,
+                            },
+                          },
+                          grid: {
+                            color: 'rgba(255, 255, 255, 0.1)',
+                          },
+                          pointLabels: {
+                            color: '#ccc',
+                            font: {
+                              size: 13,
+                              weight: '500' as const,
+                            },
+                          },
+                        },
+                      },
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                          titleColor: '#fff',
+                          bodyColor: '#fff',
+                          borderColor: 'rgba(138, 43, 226, 1)',
+                          borderWidth: 1,
+                          callbacks: {
+                            label: (context) => {
+                              return `${context.label}: ${context.parsed.r}%`;
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
