@@ -35,8 +35,43 @@ async function getPresets(): Promise<ScenarioPreset[]> {
   }
 }
 
+function getPressureColors(pressure: string) {
+  switch (pressure.toUpperCase()) {
+    case 'CRITICAL':
+      return {
+        backgroundColor: '#7f1d1d',
+        color: '#fca5a5',
+        borderColor: '#dc2626',
+      };
+    case 'HIGH':
+      return {
+        backgroundColor: '#7c2d12',
+        color: '#fdba74',
+        borderColor: '#ea580c',
+      };
+    case 'MEDIUM':
+      return {
+        backgroundColor: '#78350f',
+        color: '#fde047',
+        borderColor: '#eab308',
+      };
+    default:
+      return {
+        backgroundColor: '#222',
+        color: '#aaa',
+        borderColor: '#333',
+      };
+  }
+}
+
 export default async function Home() {
   const presets = await getPresets();
+
+  const sortedPresets = [...presets].sort((a, b) => {
+    if (a.name === 'Team Collaboration') return 1;
+    if (b.name === 'Team Collaboration') return -1;
+    return 0;
+  });
 
   return (
     <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
@@ -65,45 +100,50 @@ export default async function Home() {
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {presets.length === 0 ? (
+        {sortedPresets.length === 0 ? (
           <p style={{ color: '#666' }}>No scenario presets available.</p>
         ) : (
-          presets.map((preset) => (
-            <Link
-              key={preset.id}
-              href={`/simulation?presetId=${preset.id}`}
-              style={{
-                display: 'block',
-                padding: '1.5rem',
-                border: '1px solid #333',
-                borderRadius: '4px',
-                textDecoration: 'none',
-                color: 'inherit',
-                transition: 'border-color 0.2s',
-              }}
-            >
-              <h2 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>
-                {preset.name}
-              </h2>
-              {preset.description && (
-                <p style={{ marginBottom: '0.5rem', color: '#999', fontSize: '0.9rem' }}>
-                  {preset.description}
-                </p>
-              )}
-              <span
+          sortedPresets.map((preset) => {
+            const pressureColors = getPressureColors(preset.pressure);
+            return (
+              <Link
+                key={preset.id}
+                href={`/simulation?presetId=${preset.id}`}
                 style={{
-                  display: 'inline-block',
-                  padding: '0.25rem 0.5rem',
-                  fontSize: '0.75rem',
-                  backgroundColor: '#222',
-                  borderRadius: '2px',
-                  color: '#aaa',
+                  display: 'block',
+                  padding: '1.5rem',
+                  border: '1px solid #333',
+                  borderRadius: '4px',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  transition: 'border-color 0.2s',
                 }}
               >
-                {preset.pressure} pressure
-              </span>
-            </Link>
-          ))
+                <h2 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>
+                  {preset.name}
+                </h2>
+                {preset.description && (
+                  <p style={{ marginBottom: '0.5rem', color: '#999', fontSize: '0.9rem' }}>
+                    {preset.description}
+                  </p>
+                )}
+                <span
+                  style={{
+                    display: 'inline-block',
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    backgroundColor: pressureColors.backgroundColor,
+                    border: `1px solid ${pressureColors.borderColor}`,
+                    borderRadius: '2px',
+                    color: pressureColors.color,
+                    fontWeight: '500',
+                  }}
+                >
+                  {preset.pressure} pressure
+                </span>
+              </Link>
+            );
+          })
         )}
       </div>
     </main>
