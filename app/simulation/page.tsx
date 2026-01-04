@@ -175,14 +175,14 @@ function SimulationContent() {
       // Always update messages - merge local and database messages
       setMessages((prev) => {
         // Create a map of existing messages by content+timestamp for deduplication
-        const existingKeys = new Set(prev.map(m => {
+        const existingKeys = new Set(prev.map((m: Message) => {
           const content = m.content.substring(0, 200);
           const time = new Date(m.timestamp).getTime();
           return `${content}:${time}`;
         }));
         
         // Check if loaded messages have any new content
-        const newMessages = loadedMessages.filter(m => {
+        const newMessages = loadedMessages.filter((m: Message) => {
           const content = m.content.substring(0, 200);
           const time = new Date(m.timestamp).getTime();
           const key = `${content}:${time}`;
@@ -190,7 +190,7 @@ function SimulationContent() {
         });
         
         // Check if we have a new assistant message (which means response is complete)
-        const hasNewAssistantMessage = newMessages.some(m => m.role === 'assistant');
+        const hasNewAssistantMessage = newMessages.some((m: Message) => m.role === 'assistant');
         
         if (newMessages.length > 0 || prev.length !== loadedMessages.length) {
           console.log('Messages changed, updating state', {
@@ -218,14 +218,14 @@ function SimulationContent() {
           return merged;
         } else {
           // Check if content changed in existing messages
-          const contentChanged = loadedMessages.some((newMsg, index) => {
+          const contentChanged = loadedMessages.some((newMsg: Message, index: number) => {
             const prevMsg = prev[index];
             return !prevMsg || prevMsg.content !== newMsg.content;
           });
           if (contentChanged) {
             console.log('Message content changed');
             // Check if an assistant message was updated (response complete)
-            const assistantMessageUpdated = loadedMessages.some((newMsg, index) => {
+            const assistantMessageUpdated = loadedMessages.some((newMsg: Message, index: number) => {
               const prevMsg = prev[index];
               return newMsg.role === 'assistant' && prevMsg && prevMsg.content !== newMsg.content;
             });
