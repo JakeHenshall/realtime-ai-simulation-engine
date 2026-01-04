@@ -106,13 +106,22 @@ export async function POST(
     const sessionData = (await sessionService.getSession(id)) as any;
     const existingMessages = sessionData?.messages ?? [];
     const openingMessage = resolveOpeningMessage(sessionData);
+    
+    // Create opening message in background, but return it immediately
     if (openingMessage && existingMessages.length === 0) {
-      await sessionService.appendMessage(id, 'assistant', openingMessage, {
+      // Don't await - let it happen in background for instant response
+      sessionService.appendMessage(id, 'assistant', openingMessage, {
         type: 'opening-message',
+      }).catch((err) => {
+        logger.error({ error: err instanceof Error ? err.message : 'Unknown error' }, 'Failed to save opening message');
       });
     }
+    
     logger.info({ sessionId: id }, 'Session started');
-    const response = NextResponse.json(session);
+    const response = NextResponse.json({
+      ...session,
+      openingMessage: openingMessage && existingMessages.length === 0 ? openingMessage : undefined,
+    });
     response.headers.set('x-request-id', requestId);
     return response;
   } catch (error) {

@@ -151,10 +151,24 @@ function SimulationContent() {
 
       const newSession = await res.json();
       setSession(newSession);
-      // Fire-and-forget start to avoid blocking navigation.
-      fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" }).catch(
-        () => {}
-      );
+      // Start session and store opening message for immediate display
+      fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" })
+        .then(async (startRes) => {
+          if (startRes.ok) {
+            const startResponse = await startRes.json();
+            // Store opening message in sessionStorage for instant display after navigation
+            if (startResponse.openingMessage) {
+              sessionStorage.setItem(
+                `opening-msg-${newSession.id}`,
+                JSON.stringify({
+                  content: startResponse.openingMessage,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
+          }
+        })
+        .catch(() => {});
       router.replace(`/simulation?sessionId=${newSession.id}`);
     } catch (error) {
       console.error("Error creating session:", error);
@@ -170,6 +184,29 @@ function SimulationContent() {
         setIsLoadingSession(true);
       }
       setErrorMessage(null);
+      
+      // Check for stored opening message for instant display
+      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
+      if (storedOpening) {
+        try {
+          const { content, timestamp } = JSON.parse(storedOpening);
+          const openingMsg: Message = {
+            id: `msg-opening-${Date.now()}`,
+            role: "assistant",
+            content,
+            timestamp,
+            metadata: JSON.stringify({ type: "opening-message" }),
+          };
+          setMessages([openingMsg]);
+          setIsAwaitingResponse(false);
+          isAwaitingResponseRef.current = false;
+          // Clear from storage once used
+          sessionStorage.removeItem(`opening-msg-${sessionId}`);
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      
       const res = await fetch(`/api/sessions/${sessionId}`);
       if (!res.ok) throw new Error("Failed to load session");
 
@@ -183,7 +220,10 @@ function SimulationContent() {
         }
       );
 
-      setMessages(loadedMessages);
+      // Only update messages if we have actual messages from DB (not just the stored one)
+      if (loadedMessages.length > 0) {
+        setMessages(loadedMessages);
+      }
       if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
@@ -214,10 +254,28 @@ function SimulationContent() {
       } else if (sessionData.status === "PENDING" && !startInFlightRef.current) {
         startInFlightRef.current = true;
         fetch(`/api/sessions/${sessionId}/start`, { method: "POST" })
+          .then(async (res) => {
+            if (res.ok) {
+              const startResponse = await res.json();
+              // Show opening message immediately if provided
+              if (startResponse.openingMessage && loadedMessages.length === 0) {
+                const openingMsg: Message = {
+                  id: `msg-opening-${Date.now()}`,
+                  role: "assistant",
+                  content: startResponse.openingMessage,
+                  timestamp: new Date().toISOString(),
+                  metadata: JSON.stringify({ type: "opening-message" }),
+                };
+                setMessages([openingMsg]);
+                setIsAwaitingResponse(false);
+                isAwaitingResponseRef.current = false;
+              }
+            }
+          })
           .catch(() => {})
           .finally(() => {
             startInFlightRef.current = false;
-            // Reload once to pick up ACTIVE status quickly.
+            // Reload once to pick up ACTIVE status and sync messages.
             setTimeout(() => loadSession(), 300);
           });
       }
