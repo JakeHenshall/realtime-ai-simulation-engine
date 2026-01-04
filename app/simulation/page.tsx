@@ -389,10 +389,17 @@ function SimulationContent() {
               }
               console.log(
                 "Adding assistant message to state:",
-                assistantMessage.id
+                assistantMessage.id,
+                "Total messages will be:",
+                prev.length + 1
               );
-              setMessageUpdateTrigger((prev) => prev + 1);
-              return [...prev, assistantMessage];
+              // Return new array to ensure React detects the change
+              const newMessages = [...prev, assistantMessage];
+              // Force re-render by updating trigger after state update
+              setTimeout(() => {
+                setMessageUpdateTrigger((t) => t + 1);
+              }, 0);
+              return newMessages;
             });
             setCurrentStream("");
             currentStreamRef.current = "";
@@ -402,8 +409,11 @@ function SimulationContent() {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
-          // Don't call loadSession here - we already have the message in state from SSE
-          // The message is already persisted to the database by the API
+          // Fallback: reload session after a delay to ensure message appears
+          // This is a safety net in case the state update didn't trigger a re-render
+          setTimeout(() => {
+            loadSession();
+          }, 1000);
         } else if (data.type === "error") {
           setIsStreaming(false);
           isStreamingRef.current = false;
