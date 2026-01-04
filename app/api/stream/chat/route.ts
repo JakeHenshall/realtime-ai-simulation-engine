@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
       role: msg.role,
       content: msg.content,
     }));
-    const recentMessages = allMessages.slice(-10);
+    // Use all messages for full context, not just recent 10
+    const recentMessages = allMessages;
 
     // Calculate metrics in parallel while we build the prompt
     const sessionMetrics = metricsAnalyzer.calculateSessionMetrics(allMessages);
