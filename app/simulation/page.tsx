@@ -45,6 +45,7 @@ function SimulationContent() {
   const startInFlightRef = useRef(false);
   const openingRetryRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
+  const isLoadingSessionRef = useRef(false);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -178,34 +179,16 @@ function SimulationContent() {
 
   const loadSession = async () => {
     if (!sessionId) return;
+    
+    // Prevent concurrent loadSession calls to avoid flickering
+    if (isLoadingSessionRef.current) return;
+    isLoadingSessionRef.current = true;
 
     try {
       if (!hasLoadedOnceRef.current) {
         setIsLoadingSession(true);
       }
       setErrorMessage(null);
-      
-      // Check for stored opening message for instant display
-      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
-      if (storedOpening) {
-        try {
-          const { content, timestamp } = JSON.parse(storedOpening);
-          const openingMsg: Message = {
-            id: `msg-opening-${Date.now()}`,
-            role: "assistant",
-            content,
-            timestamp,
-            metadata: JSON.stringify({ type: "opening-message" }),
-          };
-          setMessages([openingMsg]);
-          setIsAwaitingResponse(false);
-          isAwaitingResponseRef.current = false;
-          // Clear from storage once used
-          sessionStorage.removeItem(`opening-msg-${sessionId}`);
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
       
       const res = await fetch(`/api/sessions/${sessionId}`);
       if (!res.ok) throw new Error("Failed to load session");
@@ -220,10 +203,46 @@ function SimulationContent() {
         }
       );
 
-      // Only update messages if we have actual messages from DB (not just the stored one)
-      if (loadedMessages.length > 0) {
-        setMessages(loadedMessages);
+      // Check for stored opening message and merge intelligently
+      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
+      let messagesToSet = loadedMessages;
+      
+      if (storedOpening && loadedMessages.length === 0) {
+        try {
+          const { content, timestamp } = JSON.parse(storedOpening);
+          const openingMsg: Message = {
+            id: `msg-opening-${Date.now()}`,
+            role: "assistant",
+            content,
+            timestamp,
+            metadata: JSON.stringify({ type: "opening-message" }),
+          };
+          messagesToSet = [openingMsg];
+          // Clear from storage once used
+          sessionStorage.removeItem(`opening-msg-${sessionId}`);
+        } catch (e) {
+          // Ignore parse errors
+        }
       }
+
+      // Only update messages if they've actually changed to prevent flickering
+      setMessages((prevMessages) => {
+        // Check if messages are the same (by content and timestamp)
+        if (prevMessages.length === messagesToSet.length) {
+          const isSame = prevMessages.every((prev, idx) => {
+            const next = messagesToSet[idx];
+            return (
+              prev.id === next.id &&
+              prev.content === next.content &&
+              prev.timestamp === next.timestamp
+            );
+          });
+          if (isSame) {
+            return prevMessages; // No change, return previous to prevent re-render
+          }
+        }
+        return messagesToSet;
+      });
       if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
@@ -257,16 +276,29 @@ function SimulationContent() {
           .then(async (res) => {
             if (res.ok) {
               const startResponse = await res.json();
-              // Show opening message immediately if provided
+              // Store opening message for instant display, don't set state here to avoid flicker
               if (startResponse.openingMessage && loadedMessages.length === 0) {
-                const openingMsg: Message = {
-                  id: `msg-opening-${Date.now()}`,
-                  role: "assistant",
-                  content: startResponse.openingMessage,
-                  timestamp: new Date().toISOString(),
-                  metadata: JSON.stringify({ type: "opening-message" }),
-                };
-                setMessages([openingMsg]);
+                sessionStorage.setItem(
+                  `opening-msg-${sessionId}`,
+                  JSON.stringify({
+                    content: startResponse.openingMessage,
+                    timestamp: new Date().toISOString(),
+                  })
+                );
+                // Update state only if we don't have messages yet
+                setMessages((prev) => {
+                  if (prev.length === 0) {
+                    const openingMsg: Message = {
+                      id: `msg-opening-${Date.now()}`,
+                      role: "assistant",
+                      content: startResponse.openingMessage,
+                      timestamp: new Date().toISOString(),
+                      metadata: JSON.stringify({ type: "opening-message" }),
+                    };
+                    return [openingMsg];
+                  }
+                  return prev;
+                });
                 setIsAwaitingResponse(false);
                 isAwaitingResponseRef.current = false;
               }
@@ -275,8 +307,10 @@ function SimulationContent() {
           .catch(() => {})
           .finally(() => {
             startInFlightRef.current = false;
-            // Reload once to pick up ACTIVE status and sync messages.
-            setTimeout(() => loadSession(), 300);
+            // Reload once to pick up ACTIVE status and sync messages, but only if needed
+            if (loadedMessages.length === 0) {
+              setTimeout(() => loadSession(), 300);
+            }
           });
       }
     } catch (error) {
@@ -288,6 +322,7 @@ function SimulationContent() {
       if (!hasLoadedOnceRef.current) {
         setIsLoadingSession(false);
       }
+      isLoadingSessionRef.current = false;
     }
   };
 
