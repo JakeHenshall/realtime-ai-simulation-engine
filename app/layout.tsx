@@ -1,5 +1,11 @@
 import type { Metadata } from 'next';
+import { Figtree } from 'next/font/google';
 import './globals.css';
+
+const figtree = Figtree({
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Real-time AI Simulation Engine',
@@ -12,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-GB">
-      <body>{children}</body>
+    <html lang="en-GB" className={figtree.className}>
+      <body className={figtree.className}>{children}</body>
     </html>
   );
 }

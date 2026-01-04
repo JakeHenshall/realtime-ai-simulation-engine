@@ -23,6 +23,8 @@ ChartJS.register(
   Legend
 );
 
+ChartJS.defaults.font.family = 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
 interface Analysis {
   id: string;
   sessionId: string;
@@ -201,7 +203,7 @@ export default function AnalysisPage() {
 
           {insights?.scores && (
             <div style={{ marginBottom: '2rem' }}>
-              <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Scores</h2>
+              <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Feedback & Analysis</h2>
               <div style={{ padding: '2rem', backgroundColor: '#0a1629', borderRadius: '4px', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ maxWidth: '500px', width: '100%' }}>
                   <Radar
@@ -209,7 +211,7 @@ export default function AnalysisPage() {
                       labels: ['Clarity', 'Accuracy', 'Empathy'],
                       datasets: [
                         {
-                          label: 'Performance Scores',
+                          label: 'Performance Feedback',
                           data: [
                             insights.scores.clarity,
                             insights.scores.accuracy,
@@ -251,6 +253,7 @@ export default function AnalysisPage() {
                           pointLabels: {
                             color: '#fff',
                             font: {
+                              family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                               size: 14,
                               weight: '600' as const,
                             },
@@ -270,10 +273,12 @@ export default function AnalysisPage() {
                           borderWidth: 2,
                           padding: 12,
                           titleFont: {
+                            family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                             size: 14,
                             weight: '600' as const,
                           },
                           bodyFont: {
+                            family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                             size: 13,
                           },
                           callbacks: {
