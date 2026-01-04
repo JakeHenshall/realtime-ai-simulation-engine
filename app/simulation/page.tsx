@@ -44,6 +44,7 @@ function SimulationContent() {
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startInFlightRef = useRef(false);
   const openingRetryRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -165,7 +166,9 @@ function SimulationContent() {
     if (!sessionId) return;
 
     try {
-      setIsLoadingSession(true);
+      if (!hasLoadedOnceRef.current) {
+        setIsLoadingSession(true);
+      }
       setErrorMessage(null);
       const res = await fetch(`/api/sessions/${sessionId}`);
       if (!res.ok) throw new Error("Failed to load session");
@@ -190,6 +193,7 @@ function SimulationContent() {
       setShowEndSession(
         loadedMessages.some((msg: Message) => isMessageMarkedComplete(msg))
       );
+      hasLoadedOnceRef.current = true;
 
       // Only clear stream if we're not currently streaming
       if (!isStreamingRef.current) {
@@ -223,7 +227,9 @@ function SimulationContent() {
         "Unable to load this session. Please refresh and try again."
       );
     } finally {
-      setIsLoadingSession(false);
+      if (!hasLoadedOnceRef.current) {
+        setIsLoadingSession(false);
+      }
     }
   };
 
@@ -451,7 +457,7 @@ function SimulationContent() {
     }
   };
 
-  if (!session || isLoadingSession) {
+  if (!session) {
     return (
       <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
         {errorMessage ? (
