@@ -580,6 +580,16 @@ function SimulationContent() {
     );
   }
 
+  // If we have messages or are streaming, render UI even without session (it will load)
+  // Otherwise, ensure session exists before rendering
+  if (!session && messages.length === 0 && !isStreaming) {
+    return (
+      <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
+        <p>Loading session...</p>
+      </main>
+    );
+  }
+
   return (
     <main
       style={{
@@ -604,7 +614,7 @@ function SimulationContent() {
             ← Back
           </Link>
           <h1 style={{ marginTop: "0.5rem", fontSize: "1.5rem" }}>
-            {session.name}
+            {session?.name || "Simulation"}
           </h1>
         </div>
       </div>
