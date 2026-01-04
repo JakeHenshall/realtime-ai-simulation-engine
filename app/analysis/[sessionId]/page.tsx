@@ -255,7 +255,7 @@ export default function AnalysisPage() {
                             font: {
                               family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                               size: 14,
-                              weight: '600' as const,
+                              weight: 600,
                             },
                             padding: 20,
                           },
@@ -275,7 +275,7 @@ export default function AnalysisPage() {
                           titleFont: {
                             family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                             size: 14,
-                            weight: '600' as const,
+                            weight: 600,
                           },
                           bodyFont: {
                             family: 'Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
