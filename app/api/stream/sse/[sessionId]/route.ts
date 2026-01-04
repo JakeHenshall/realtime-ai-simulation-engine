@@ -23,10 +23,6 @@ export async function GET(
           try {
             const data = `data: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(new TextEncoder().encode(data));
-
-            if (event.type === 'done' || event.type === 'error') {
-              controller.close();
-            }
           } catch (error) {
             controller.error(error);
           }
@@ -64,4 +60,3 @@ export async function GET(
     );
   }
 }
-

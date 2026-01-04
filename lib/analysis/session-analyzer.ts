@@ -47,7 +47,10 @@ export class SessionAnalyzer {
   /**
    * Validate JSON structure matches expected schema
    */
-  private validateAnalysisResult(data: any): data is AnalysisResult {
+  private validateAnalysisResult(
+    data: any,
+    messageCount: number
+  ): data is AnalysisResult {
     if (!data || typeof data !== 'object') {
       return false;
     }
@@ -96,6 +99,22 @@ export class SessionAnalyzer {
       return false;
     }
 
+    const citationPattern = /\[msg\s+(\d+)\]/i;
+    const hasValidCitation = (item: string) => {
+      const match = item.match(citationPattern);
+      if (!match) return false;
+      const index = Number(match[1]);
+      return Number.isInteger(index) && index >= 1 && index <= messageCount;
+    };
+
+    if (
+      !strengths.every(hasValidCitation) ||
+      !weaknesses.every(hasValidCitation) ||
+      !recommendations.every(hasValidCitation)
+    ) {
+      return false;
+    }
+
     return true;
   }
 
@@ -107,7 +126,7 @@ export class SessionAnalyzer {
     sessionContext?: { name?: string; preset?: string }
   ): Promise<AnalysisResult> {
     const conversationText = messages
-      .map((msg) => `${msg.role}: ${msg.content}`)
+      .map((msg, idx) => `[msg ${idx + 1}] ${msg.role}: ${msg.content}`)
       .join('\n\n');
 
     const systemPrompt = `You are an expert conversation analyst. Analyze the following conversation and provide a structured assessment.
@@ -131,6 +150,8 @@ IMPORTANT:
 - Respond with ONLY valid JSON, no markdown, no code blocks, no explanations
 - All scores must be integers between 0 and 100
 - All arrays must contain at least 2 items
+- Every item in strengths/weaknesses/recommendations MUST cite at least one message like [msg 3]
+- Only use evidence from the conversation; if insufficient, say so explicitly with a citation
 - Be objective and specific in your analysis`;
 
     const userPrompt = `Analyze this conversation:
@@ -175,7 +196,7 @@ Provide your analysis as JSON following the exact structure specified.`;
       }
 
       // Validate structure
-      if (!this.validateAnalysisResult(parsed)) {
+      if (!this.validateAnalysisResult(parsed, messages.length)) {
         throw new LLMError(
           'LLM response does not match required schema structure',
           500,
@@ -199,4 +220,3 @@ Provide your analysis as JSON following the exact structure specified.`;
 }
 
 export const sessionAnalyzer = new SessionAnalyzer();
-

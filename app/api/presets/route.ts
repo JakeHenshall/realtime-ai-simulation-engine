@@ -17,6 +17,11 @@ const defaultPresets = [
       issueComplexity: 'high',
       timeLimit: 15,
       escalationRisk: true,
+      openingMessages: [
+        'A frustrated customer is on the line about a critical service failure. How do you open the conversation and gather the key details?',
+        'You receive an urgent escalation: a key customer cannot access their account. How do you respond and begin troubleshooting?',
+        'A customer threatens to churn after a repeated outage. What do you say first and what information do you request?',
+      ],
     }),
   },
   {
@@ -28,6 +33,11 @@ const defaultPresets = [
       topic: 'project_priorities',
       conflictLevel: 'moderate',
       timeLimit: 30,
+      openingMessages: [
+        'You are leading a team meeting where priorities are in conflict. How do you open and align the group on the agenda?',
+        'Two stakeholders disagree on the roadmap. How do you frame the discussion and set a productive tone?',
+        'A cross-functional team is split on resource allocation. How do you kick off the meeting to drive consensus?',
+      ],
     }),
   },
   {
@@ -39,6 +49,11 @@ const defaultPresets = [
       affectedUsers: 10000,
       timeLimit: 5,
       communicationChannels: ['slack', 'email', 'phone'],
+      openingMessages: [
+        "Simulated Critical System Outage: core services are down for thousands of users. You're the on-call lead. What are your first three actions and how will you communicate?",
+        'Simulated Critical System Outage: database writes are timing out across the platform. What is your immediate triage plan and who do you notify?',
+        'Simulated Critical System Outage: a bad deploy just rolled out and core APIs are failing. What do you do in the first 5 minutes?',
+      ],
     }),
   },
 ];
