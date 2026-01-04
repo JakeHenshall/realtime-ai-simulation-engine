@@ -11,6 +11,7 @@ interface Message {
   role: string;
   content: string;
   timestamp: string;
+  metadata?: string | null;
 }
 
 interface Session {
@@ -29,15 +30,37 @@ function SimulationContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [currentStream, setCurrentStream] = useState('');
+  const [showEndSession, setShowEndSession] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [messageUpdateTrigger, setMessageUpdateTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const currentStreamRef = useRef('');
+  const isStreamingRef = useRef(false);
+  const isAwaitingResponseRef = useRef(false);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initialMessageCountRef = useRef<number>(0);
+  const completionMarker = '[[SESSION_COMPLETE]]';
+  const isMessageMarkedComplete = (message: Message) => {
+    if (message.role !== 'assistant') return false;
+    if (message.content?.includes(completionMarker)) return true;
+    if (!message.metadata) return false;
+    try {
+      const parsed = JSON.parse(message.metadata) as { sessionComplete?: boolean };
+      return Boolean(parsed.sessionComplete);
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (sessionId) {
       loadSession();
-      connectSSE();
     } else if (presetId) {
       createSession();
     }
@@ -50,11 +73,67 @@ function SimulationContent() {
   }, [presetId, sessionId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, currentStream]);
+    if (messages.length > 0 || currentStream) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages, currentStream, messageUpdateTrigger]);
+
+  useEffect(() => {
+    currentStreamRef.current = currentStream;
+  }, [currentStream]);
+
+  useEffect(() => {
+    isAwaitingResponseRef.current = isAwaitingResponse;
+  }, [isAwaitingResponse]);
+
+  useEffect(() => {
+    return () => {
+      if (fallbackTimerRef.current) {
+        clearTimeout(fallbackTimerRef.current);
+        fallbackTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const clearResponseFallback = () => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+  };
+
+  const scheduleResponseFallback = () => {
+    clearResponseFallback();
+    isAwaitingResponseRef.current = true;
+    
+    // First check after 2 seconds
+    fallbackTimerRef.current = setTimeout(() => {
+      if (!sessionId) return;
+      if (isStreamingRef.current || currentStreamRef.current) {
+        // If streaming started, check again in 3 more seconds
+        fallbackTimerRef.current = setTimeout(() => {
+          if (!isStreamingRef.current && !currentStreamRef.current && isAwaitingResponseRef.current) {
+            console.log('Fallback: reloading session to check for new messages');
+            loadSession();
+            isAwaitingResponseRef.current = false;
+          }
+        }, 3000);
+        return;
+      }
+      if (!isAwaitingResponseRef.current) return;
+      // Fallback: reload session to get any new messages
+      console.log('Fallback: reloading session to check for new messages');
+      loadSession();
+      isAwaitingResponseRef.current = false;
+    }, 2000);
+  };
 
   const createSession = async () => {
     try {
+      setErrorMessage(null);
+      setShowEndSession(false);
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,6 +153,7 @@ function SimulationContent() {
       router.replace(`/simulation?sessionId=${newSession.id}`);
     } catch (error) {
       console.error('Error creating session:', error);
+      setErrorMessage('Failed to create the session. Please try again.');
     }
   };
 
@@ -81,58 +161,240 @@ function SimulationContent() {
     if (!sessionId) return;
 
     try {
+      setIsLoadingSession(true);
+      setErrorMessage(null);
       const res = await fetch(`/api/sessions/${sessionId}`);
       if (!res.ok) throw new Error('Failed to load session');
 
       const sessionData = await res.json();
       setSession(sessionData);
-      setMessages(sessionData.messages || []);
+      const loadedMessages = (sessionData.messages || []).sort((a: Message, b: Message) => {
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+      
+      // Always update messages - merge local and database messages
+      setMessages((prev) => {
+        // Create a map of existing messages by content+timestamp for deduplication
+        const existingKeys = new Set(prev.map(m => {
+          const content = m.content.substring(0, 200);
+          const time = new Date(m.timestamp).getTime();
+          return `${content}:${time}`;
+        }));
+        
+        // Check if loaded messages have any new content
+        const newMessages = loadedMessages.filter(m => {
+          const content = m.content.substring(0, 200);
+          const time = new Date(m.timestamp).getTime();
+          const key = `${content}:${time}`;
+          return !existingKeys.has(key);
+        });
+        
+        // Check if we have a new assistant message (which means response is complete)
+        const hasNewAssistantMessage = newMessages.some(m => m.role === 'assistant');
+        
+        if (newMessages.length > 0 || prev.length !== loadedMessages.length) {
+          console.log('Messages changed, updating state', {
+            prevCount: prev.length,
+            newCount: loadedMessages.length,
+            newMessagesCount: newMessages.length,
+            hasNewAssistantMessage
+          });
+          
+          // If we have a new assistant message, clear awaiting response state
+          if (hasNewAssistantMessage) {
+            setIsAwaitingResponse(false);
+            isAwaitingResponseRef.current = false;
+            setIsStreaming(false);
+            isStreamingRef.current = false;
+            console.log('New assistant message detected, clearing awaiting response state');
+          }
+          
+          setMessageUpdateTrigger(t => t + 1);
+          // Use database messages as source of truth, but ensure we have all of them
+          // Sort by timestamp to maintain order
+          const merged = [...loadedMessages].sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          return merged;
+        } else {
+          // Check if content changed in existing messages
+          const contentChanged = loadedMessages.some((newMsg, index) => {
+            const prevMsg = prev[index];
+            return !prevMsg || prevMsg.content !== newMsg.content;
+          });
+          if (contentChanged) {
+            console.log('Message content changed');
+            // Check if an assistant message was updated (response complete)
+            const assistantMessageUpdated = loadedMessages.some((newMsg, index) => {
+              const prevMsg = prev[index];
+              return newMsg.role === 'assistant' && prevMsg && prevMsg.content !== newMsg.content;
+            });
+            if (assistantMessageUpdated) {
+              setIsAwaitingResponse(false);
+              isAwaitingResponseRef.current = false;
+              setIsStreaming(false);
+              isStreamingRef.current = false;
+            }
+            setMessageUpdateTrigger(t => t + 1);
+            return [...loadedMessages].sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          }
+          console.log('No message changes detected');
+          return prev;
+        }
+      });
+      
+      setShowEndSession(
+        loadedMessages.some((msg: Message) => isMessageMarkedComplete(msg))
+      );
+      
+      // Only clear stream if we're not currently streaming
+      if (!isStreamingRef.current) {
+        setCurrentStream('');
+        currentStreamRef.current = '';
+      }
 
-      if (sessionData.status === 'ACTIVE') {
+      if (sessionData.status === 'ACTIVE' && (!eventSourceRef.current || eventSourceRef.current.readyState === EventSource.CLOSED)) {
         connectSSE();
       }
     } catch (error) {
       console.error('Error loading session:', error);
+      setErrorMessage('Unable to load this session. Please refresh and try again.');
+    } finally {
+      setIsLoadingSession(false);
     }
   };
 
   const connectSSE = () => {
-    if (!sessionId || eventSourceRef.current) return;
+    if (!sessionId) return;
+    
+    // Close existing connection if it exists
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
 
     const eventSource = new EventSource(`/api/stream/sse/${sessionId}`);
     eventSourceRef.current = eventSource;
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    eventSource.onopen = () => {
+      console.log('SSE connection opened for session:', sessionId);
+    };
 
-      if (data.type === 'token') {
-        setIsStreaming(true);
-        setCurrentStream((prev) => prev + data.data);
-      } else if (data.type === 'done') {
-        setIsStreaming(false);
-        if (currentStream) {
-          setMessages((prev) => [
-            ...prev,
-            {
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('SSE message received:', data.type, data.data?.substring(0, 50));
+
+        if (data.type === 'token') {
+          setIsAwaitingResponse(false);
+          isAwaitingResponseRef.current = false;
+          setIsStreaming(true);
+          isStreamingRef.current = true;
+          clearResponseFallback();
+          // Clear any polling intervals when streaming starts
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          setCurrentStream((prev) => {
+            const next = prev + data.data;
+            currentStreamRef.current = next;
+            if (next.includes(completionMarker)) {
+              setShowEndSession(true);
+            }
+            return next;
+          });
+        } else if (data.type === 'done') {
+          setIsStreaming(false);
+          isStreamingRef.current = false;
+          setIsAwaitingResponse(false);
+          isAwaitingResponseRef.current = false;
+          clearResponseFallback();
+          if (currentStreamRef.current) {
+            if (currentStreamRef.current.includes(completionMarker)) {
+              setShowEndSession(true);
+            }
+            const assistantMessage = {
               id: `msg-${Date.now()}`,
               role: 'assistant',
-              content: currentStream,
+              content: currentStreamRef.current.replaceAll(completionMarker, '').trim(),
               timestamp: new Date().toISOString(),
-            },
-          ]);
+            };
+            console.log('SSE done, adding message to state:', assistantMessage.id, assistantMessage.content.substring(0, 50));
+            // Clear awaiting response state since we have the complete message
+            setIsAwaitingResponse(false);
+            isAwaitingResponseRef.current = false;
+            setIsStreaming(false);
+            isStreamingRef.current = false;
+            setMessages((prev) => {
+              // Check if message already exists to avoid duplicates
+              const exists = prev.some(msg => 
+                msg.role === 'assistant' && 
+                msg.content === assistantMessage.content &&
+                Math.abs(new Date(msg.timestamp).getTime() - new Date(assistantMessage.timestamp).getTime()) < 5000
+              );
+              if (exists) {
+                console.log('Message already exists, skipping duplicate');
+                return prev;
+              }
+              console.log('Adding assistant message to state:', assistantMessage.id);
+              setMessageUpdateTrigger(prev => prev + 1);
+              return [...prev, assistantMessage];
+            });
+            setCurrentStream('');
+            currentStreamRef.current = '';
+          }
+          // Reload session to get the latest messages from the database
+          // Use a longer delay to ensure message is persisted
+          setTimeout(() => {
+            console.log('Reloading session after SSE done');
+            loadSession();
+          }, 1500);
+          // Also continue polling for a bit longer to catch any delayed messages
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          pollIntervalRef.current = setInterval(() => {
+            loadSession();
+          }, 2000);
+          // Stop polling after 10 seconds
+          setTimeout(() => {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }, 10000);
+        } else if (data.type === 'error') {
+          setIsStreaming(false);
+          isStreamingRef.current = false;
+          setIsAwaitingResponse(false);
+          clearResponseFallback();
           setCurrentStream('');
+          currentStreamRef.current = '';
+          setErrorMessage('The response stream failed. Please try sending again.');
+          console.error('SSE error:', data.data);
         }
-        loadSession();
-      } else if (data.type === 'error') {
-        setIsStreaming(false);
-        setCurrentStream('');
-        console.error('SSE error:', data.data);
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
       }
     };
 
-    eventSource.onerror = () => {
-      eventSource.close();
-      eventSourceRef.current = null;
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      // Don't close on first error - might be temporary
+      // Only close if connection is actually closed
+      if (eventSource.readyState === EventSource.CLOSED) {
+        eventSource.close();
+        eventSourceRef.current = null;
+        setIsStreaming(false);
+        isStreamingRef.current = false;
+        setIsAwaitingResponse(false);
+        clearResponseFallback();
+        setErrorMessage('Lost connection to the session stream. Please try again.');
+      }
     };
   };
 
@@ -142,6 +404,15 @@ function SimulationContent() {
     const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
+    setIsAwaitingResponse(true);
+    setErrorMessage(null);
+    
+    // Ensure SSE connection is established before sending
+    connectSSE();
+    scheduleResponseFallback();
+    
+    // Small delay to ensure SSE connection is ready
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     setMessages((prev) => [
       ...prev,
@@ -153,6 +424,36 @@ function SimulationContent() {
       },
     ]);
 
+    const thinkingTimeout = setTimeout(() => {
+      if (!isStreamingRef.current) {
+        setIsAwaitingResponse(false);
+        isAwaitingResponseRef.current = false;
+      }
+    }, 10000);
+
+    // Start polling for new messages as a fallback
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+    initialMessageCountRef.current = messages.length;
+    let pollCount = 0;
+    pollIntervalRef.current = setInterval(() => {
+      pollCount++;
+      // Always check for new messages - don't stop just because streaming started
+      // The message might be in the database before SSE completes
+      loadSession();
+      
+      // Stop polling after 20 attempts (30 seconds) or if we detect a new message
+      // We check by reloading and comparing - the loadSession will update messages state
+      if (pollCount >= 20) {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          console.log('Stopping polling - max attempts reached');
+        }
+      }
+    }, 1500);
+
     try {
       const res = await fetch('/api/stream/chat', {
         method: 'POST',
@@ -162,6 +463,21 @@ function SimulationContent() {
           message: userMessage,
         }),
       });
+
+      clearTimeout(thinkingTimeout);
+      
+      // Immediately check for response after a short delay
+      setTimeout(() => {
+        loadSession();
+      }, 2000);
+      
+      // Check again after a longer delay to catch any delayed messages
+      setTimeout(() => {
+        loadSession();
+      }, 5000);
+      
+      // Don't stop polling too early - let it continue until we get a response
+      // The polling interval will stop itself after max attempts
 
       if (!res.ok) {
         const rawError = await res.text();
@@ -185,9 +501,21 @@ function SimulationContent() {
             timestamp: new Date().toISOString(),
           },
         ]);
+        setErrorMessage(message);
+        setIsAwaitingResponse(false);
+        isAwaitingResponseRef.current = false;
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
         return;
       }
     } catch (error) {
+      clearTimeout(thinkingTimeout);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
       console.error('Error sending message:', error);
       // Show error to user
       setMessages((prev) => [
@@ -199,6 +527,9 @@ function SimulationContent() {
           timestamp: new Date().toISOString(),
         },
       ]);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to send message');
+      setIsAwaitingResponse(false);
+      isAwaitingResponseRef.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -215,10 +546,24 @@ function SimulationContent() {
     }
   };
 
-  if (!session) {
+  if (!session || isLoadingSession) {
     return (
       <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        <p>Loading...</p>
+        {errorMessage ? (
+          <div
+            style={{
+              padding: '1rem',
+              borderRadius: '6px',
+              border: '1px solid #7f1d1d',
+              backgroundColor: '#1f0f0f',
+              color: '#fca5a5',
+            }}
+          >
+            {errorMessage}
+          </div>
+        ) : (
+          <p>Loading session...</p>
+        )}
       </main>
     );
   }
@@ -232,20 +577,22 @@ function SimulationContent() {
           </Link>
           <h1 style={{ marginTop: '0.5rem', fontSize: '1.5rem' }}>{session.name}</h1>
         </div>
-        <button
-          onClick={endSession}
+      </div>
+
+      {errorMessage && (
+        <div
           style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#333',
-            border: '1px solid #555',
-            borderRadius: '4px',
-            color: '#fff',
-            fontSize: '0.9rem',
+            marginBottom: '1rem',
+            padding: '0.75rem 1rem',
+            borderRadius: '6px',
+            border: '1px solid #7f1d1d',
+            backgroundColor: '#1f0f0f',
+            color: '#fca5a5',
           }}
         >
-          End Session
-        </button>
-      </div>
+          {errorMessage}
+        </div>
+      )}
 
       <div
         style={{
@@ -257,12 +604,12 @@ function SimulationContent() {
           marginBottom: '1rem',
         }}
       >
-        {messages.length === 0 && !currentStream && (
+        {messages.length === 0 && !currentStream && !isAwaitingResponse && (
           <p style={{ color: '#666', textAlign: 'center', marginTop: '2rem' }}>
-            Start the conversation by sending a message.
+            No messages yet. Start the conversation.
           </p>
         )}
-
+        {/* Debug: {messages.length} messages, trigger: {messageUpdateTrigger} */}
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -312,7 +659,7 @@ function SimulationContent() {
                     ),
                   }}
                 >
-                  {msg.content}
+                  {msg.content.replaceAll(completionMarker, '').trim()}
                 </ReactMarkdown>
               </div>
             ) : (
@@ -368,7 +715,7 @@ function SimulationContent() {
                   ),
                 }}
               >
-                {currentStream}
+                {currentStream.replaceAll(completionMarker, '').trim()}
               </ReactMarkdown>
               <span style={{ opacity: 0.5 }}>▊</span>
             </div>
@@ -377,6 +724,31 @@ function SimulationContent() {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {showEndSession && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <button
+            onClick={endSession}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#333',
+              border: '1px solid #555',
+              borderRadius: '6px',
+              color: '#fff',
+              fontSize: '0.95rem',
+            }}
+          >
+            End Session
+          </button>
+        </div>
+      )}
+
+      {(isAwaitingResponse || isStreaming) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: '#aaa' }}>
+          <span className="spinner" aria-hidden="true" />
+          <span>{isStreaming ? 'Assistant is responding…' : 'Thinking…'}</span>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <input
@@ -390,7 +762,7 @@ function SimulationContent() {
             }
           }}
           placeholder="Type your message..."
-          disabled={isLoading || isStreaming}
+          disabled={isLoading || isStreaming || isLoadingSession}
           style={{
             flex: 1,
             padding: '0.75rem',
@@ -403,7 +775,7 @@ function SimulationContent() {
         />
         <button
           onClick={sendMessage}
-          disabled={isLoading || isStreaming || !input.trim()}
+          disabled={isLoading || isStreaming || isLoadingSession || !input.trim()}
           style={{
             padding: '0.75rem 1.5rem',
             backgroundColor: isLoading || isStreaming ? '#222' : '#333',
@@ -416,6 +788,23 @@ function SimulationContent() {
           Send
         </button>
       </div>
+
+      <style jsx>{`
+        .spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid #333;
+          border-top-color: #fff;
+          border-radius: 50%;
+          display: inline-block;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </main>
   );
 }
