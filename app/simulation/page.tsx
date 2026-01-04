@@ -42,6 +42,7 @@ function SimulationContent() {
   const isStreamingRef = useRef(false);
   const isAwaitingResponseRef = useRef(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startInFlightRef = useRef(false);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -148,9 +149,10 @@ function SimulationContent() {
 
       const newSession = await res.json();
       setSession(newSession);
-
-      await fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" });
-
+      // Fire-and-forget start to avoid blocking navigation.
+      fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" }).catch(
+        () => {}
+      );
       router.replace(`/simulation?sessionId=${newSession.id}`);
     } catch (error) {
       console.error("Error creating session:", error);
@@ -199,6 +201,15 @@ function SimulationContent() {
           eventSourceRef.current.readyState === EventSource.CLOSED)
       ) {
         connectSSE();
+      } else if (sessionData.status === "PENDING" && !startInFlightRef.current) {
+        startInFlightRef.current = true;
+        fetch(`/api/sessions/${sessionId}/start`, { method: "POST" })
+          .catch(() => {})
+          .finally(() => {
+            startInFlightRef.current = false;
+            // Reload once to pick up ACTIVE status quickly.
+            setTimeout(() => loadSession(), 300);
+          });
       }
     } catch (error) {
       console.error("Error loading session:", error);
