@@ -36,15 +36,12 @@ function SimulationContent() {
   const [currentStream, setCurrentStream] = useState("");
   const [showEndSession, setShowEndSession] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [messageUpdateTrigger, setMessageUpdateTrigger] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const currentStreamRef = useRef("");
   const isStreamingRef = useRef(false);
   const isAwaitingResponseRef = useRef(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const initialMessageCountRef = useRef<number>(0);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -80,7 +77,7 @@ function SimulationContent() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     }
-  }, [messages, currentStream, messageUpdateTrigger]);
+  }, [messages, currentStream]);
 
   useEffect(() => {
     currentStreamRef.current = currentStream;
@@ -180,94 +177,11 @@ function SimulationContent() {
         }
       );
 
-      // Always update messages - merge local and database messages
-      setMessages((prev) => {
-        // Create a map of existing messages by content+timestamp for deduplication
-        const existingKeys = new Set(
-          prev.map((m: Message) => {
-            const content = m.content.substring(0, 200);
-            const time = new Date(m.timestamp).getTime();
-            return `${content}:${time}`;
-          })
-        );
-
-        // Check if loaded messages have any new content
-        const newMessages = loadedMessages.filter((m: Message) => {
-          const content = m.content.substring(0, 200);
-          const time = new Date(m.timestamp).getTime();
-          const key = `${content}:${time}`;
-          return !existingKeys.has(key);
-        });
-
-        // Check if we have a new assistant message (which means response is complete)
-        const hasNewAssistantMessage = newMessages.some(
-          (m: Message) => m.role === "assistant"
-        );
-
-        if (newMessages.length > 0 || prev.length !== loadedMessages.length) {
-          // If we have a new assistant message, clear awaiting response state and stop polling
-          if (hasNewAssistantMessage) {
-            setIsAwaitingResponse(false);
-            isAwaitingResponseRef.current = false;
-            setIsStreaming(false);
-            isStreamingRef.current = false;
-            // Stop polling once we have a new assistant message
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-          }
-
-          setMessageUpdateTrigger((t) => t + 1);
-          // Use database messages as source of truth, but ensure we have all of them
-          // Sort by timestamp to maintain order
-          const merged = [...loadedMessages].sort(
-            (a, b) =>
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          return merged;
-        } else {
-          // Check if content changed in existing messages
-          const contentChanged = loadedMessages.some(
-            (newMsg: Message, index: number) => {
-              const prevMsg = prev[index];
-              return !prevMsg || prevMsg.content !== newMsg.content;
-            }
-          );
-          if (contentChanged) {
-            // Check if an assistant message was updated (response complete)
-            const assistantMessageUpdated = loadedMessages.some(
-              (newMsg: Message, index: number) => {
-                const prevMsg = prev[index];
-                return (
-                  newMsg.role === "assistant" &&
-                  prevMsg &&
-                  prevMsg.content !== newMsg.content
-                );
-              }
-            );
-            if (assistantMessageUpdated) {
-              setIsAwaitingResponse(false);
-              isAwaitingResponseRef.current = false;
-              setIsStreaming(false);
-              isStreamingRef.current = false;
-              // Stop polling once assistant message is updated
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null;
-              }
-            }
-            setMessageUpdateTrigger((t) => t + 1);
-            return [...loadedMessages].sort(
-              (a, b) =>
-                new Date(a.timestamp).getTime() -
-                new Date(b.timestamp).getTime()
-            );
-          }
-          // No changes detected - return prev to avoid unnecessary re-renders
-          return prev;
-        }
-      });
+      setMessages(loadedMessages);
+      if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
+        setIsAwaitingResponse(false);
+        isAwaitingResponseRef.current = false;
+      }
 
       setShowEndSession(
         loadedMessages.some((msg: Message) => isMessageMarkedComplete(msg))
@@ -299,10 +213,11 @@ function SimulationContent() {
   const connectSSE = () => {
     if (!sessionId) return;
 
-    // Close existing connection if it exists
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (
+      eventSourceRef.current &&
+      eventSourceRef.current.readyState !== EventSource.CLOSED
+    ) {
+      return;
     }
 
     const eventSource = new EventSource(`/api/stream/sse/${sessionId}`);
@@ -319,11 +234,6 @@ function SimulationContent() {
           setIsStreaming(true);
           isStreamingRef.current = true;
           clearResponseFallback();
-          // Clear any polling intervals when streaming starts
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
           setCurrentStream((prev) => {
             const next = prev + data.data;
             currentStreamRef.current = next;
@@ -369,21 +279,10 @@ function SimulationContent() {
               if (exists) {
                 return prev;
               }
-              // Return new array to ensure React detects the change
-              const newMessages = [...prev, assistantMessage];
-              // Force re-render by updating trigger after state update
-              setTimeout(() => {
-                setMessageUpdateTrigger((t) => t + 1);
-              }, 0);
-              return newMessages;
+              return [...prev, assistantMessage];
             });
             setCurrentStream("");
             currentStreamRef.current = "";
-          }
-          // Stop all polling since we have the complete message
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
           }
           // Fallback: reload session after a delay to ensure message appears
           // This is a safety net in case the state update didn't trigger a re-render
@@ -458,37 +357,6 @@ function SimulationContent() {
       }
     }, 10000);
 
-    // Start polling for new messages as a fallback
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
-    initialMessageCountRef.current = messages.length;
-    let pollCount = 0;
-    pollIntervalRef.current = setInterval(() => {
-      pollCount++;
-
-      // Stop polling after 20 attempts (30 seconds)
-      if (pollCount >= 20) {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        return;
-      }
-
-      // Only check for new messages if we're still awaiting a response
-      // The loadSession will stop polling when it detects a new assistant message
-      if (isAwaitingResponseRef.current || isStreamingRef.current) {
-        loadSession();
-      } else {
-        // If we're not awaiting a response anymore, stop polling
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      }
-    }, 1500);
-
     try {
       const res = await fetch("/api/stream/chat", {
         method: "POST",
@@ -501,8 +369,7 @@ function SimulationContent() {
 
       clearTimeout(thinkingTimeout);
 
-      // Don't call loadSession here - SSE will handle message updates
-      // The polling interval is already running as a fallback if SSE fails
+      // SSE handles message updates; fallback handles missed streams.
 
       if (!res.ok) {
         const rawError = await res.text();
@@ -529,18 +396,10 @@ function SimulationContent() {
         setErrorMessage(message);
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
         return;
       }
     } catch (error) {
       clearTimeout(thinkingTimeout);
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
       console.error("Error sending message:", error);
       // Show error to user
       setMessages((prev) => [
@@ -656,7 +515,6 @@ function SimulationContent() {
             No messages yet. Start the conversation.
           </p>
         )}
-        {/* Debug: {messages.length} messages, trigger: {messageUpdateTrigger} */}
         {messages.map((msg) => (
           <div
             key={msg.id}
