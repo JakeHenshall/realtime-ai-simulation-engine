@@ -19,7 +19,6 @@ import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-l
 import { createRequestLogger } from '@/lib/logger';
 import { streamChatSchema } from '@/lib/validation/api-schemas';
 import { ZodError } from 'zod';
-import { AuthError, getUserIdFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = getUserIdFromRequest(request);
-    const session = await sessionService.getSession(validatedSessionId, userId);
+    const session = await sessionService.getSession(validatedSessionId);
 
     if (session.status !== SessionStatus.ACTIVE) {
       return NextResponse.json({ error: 'Session must be active' }, { status: 400 });
@@ -72,8 +71,8 @@ export async function POST(request: NextRequest) {
 
     // Start streaming ASAP - do heavy work in parallel
     const [userMessage, sessionWithMessages] = await Promise.all([
-      sessionService.appendMessage(validatedSessionId, userId, 'user', message),
-      sessionService.getSession(validatedSessionId, userId),
+      sessionService.appendMessage(validatedSessionId, 'user', message),
+      sessionService.getSession(validatedSessionId),
     ]);
 
     const sessionData = sessionWithMessages as any;
@@ -128,9 +127,16 @@ export async function POST(request: NextRequest) {
         'When user fails on access issue: "No actionable response provided. In an urgent access escalation, the priority is immediate ownership and live investigation. Opening the conversation: \'I understand this is urgent. I\'m taking ownership now and we\'ll work to restore your access as quickly as possible.\' Immediate actions: Begin checking account status, authentication, and permissions in parallel. Key details to gather: Account email or ID, when access last worked, exact error message or behaviour, whether this affects all users or one user. System state: Investigation in progress. Customer blocked. Updates to follow shortly."',
         'When user fails on churn threat (ONLY if explicitly mentioned): "No actionable response provided. In a churn-risk conversation, the priority is acknowledgment, ownership, and clarity. Opening the conversation: \'I understand why this is frustrating, especially after repeated outages. I\'m sorry for the impact this has had, and I want to make sure we address this properly.\' Key information to gather: [what specifically failed and when, scope - all users or specific workflow, business impact today and what\'s most critical, what outcome they need to regain confidence]. Next step: [summarise concerns, explain immediate actions, set clear follow-up plan with timelines]."',
         'When user provides placeholder/test/non-actionable input: "No actionable response provided. In a customer-facing incident, the priority is de-escalation and rapid clarification. Opening the conversation: \'I understand this is frustrating, and I\'m sorry for the disruption. I\'m here to help and I\'ll stay with you while we work through this.\' Key details to gather: What specifically is failing and when it started, whether this affects all users or a specific action, any error messages or unusual behaviour, the immediate business impact. System state: Customer impacted by critical service failure. Investigation pending customer details."',
-        'Focus on: immediate ownership, live investigation, gathering specific actionable details (what failed, when, scope, error messages, timestamps, business impact, critical priorities), advancing the conversation forward.',
+        'OPERATIONAL REALISM RULES:',
+        '  - In customer-facing scenarios: show ownership and action, not internal processes.',
+        '  - In access issues: use immediate investigation language ("checking now").',
+        '  - Early responses must be concise, decisive, and pressure-aware.',
+        'OUTPUT CONSTRAINTS:',
+        '  - Keep responses tight and authoritative.',
+        '  - Avoid filler, teaching language, and politeness scripts.',
+        '  - Do not ask casual questions unless the scenario explicitly requires user input.',
+        '  - Never include meta commentary such as "the user said" or "this response indicates".',
         'Stay customer-facing. Use empathy and professional language appropriate for phone conversation. Show the customer they matter and someone is accountable.',
-        'ALWAYS advance the conversation forward. Show how the customer interaction progresses based on information gathered. Never loop or repeat the same answer.',
         'No emojis, no internal tooling references, no technical jargon the customer wouldn\'t understand.',
         `When the customer issue is fully resolved and confidence is restored, end your response with the exact marker ${SESSION_COMPLETE_MARKER}.`,
       ];
@@ -156,6 +162,14 @@ export async function POST(request: NextRequest) {
         'Drive toward outcomes: Frame the goal clearly, set boundaries, and make it clear a decision will be made.',
         'DETECT USER FAILURE: If the user hesitates, says "I\'m not sure", "I don\'t know", "can you advise", or fails to lead decisively, explicitly acknowledge this as a failure: "No response provided. In a leadership setting, clarity and alignment come first." Then model the correct behavior.',
         'When user fails, demonstrate correct leadership: "Opening the meeting: \'We\'re here to decide how to allocate resources, not to relitigate positions. The goal today is alignment around impact and priorities.\' Frame the discussion: \'We have competing demands and limited capacity. We\'ll evaluate options against business impact, risk, and timelines.\' Set the rule: \'Everyone gets heard, but we\'re leaving this meeting with a decision or a clear owner for the next step.\'"',
+        'OPERATIONAL REALISM RULES:',
+        '  - In leadership scenarios: set constraints, decision ownership, and outcomes.',
+        '  - Early responses must be concise, decisive, and pressure-aware.',
+        'OUTPUT CONSTRAINTS:',
+        '  - Keep responses tight and authoritative.',
+        '  - Avoid filler, teaching language, and politeness scripts.',
+        '  - Do not ask casual questions unless the scenario explicitly requires user input.',
+        '  - Never include meta commentary such as "the user said" or "this response indicates".',
         'Structure responses: Opening statement (goal and constraints), Frame (boundaries and evaluation criteria), Rule (decision ownership and outcome).',
         'Avoid: long agendas, "everyone share" fluff, workshop language, management training material.',
         `When the meeting reaches a decision or clear ownership is established, end your response with the exact marker ${SESSION_COMPLETE_MARKER}.`,
@@ -189,6 +203,14 @@ export async function POST(request: NextRequest) {
         'Default to action, not explanation. Assume the incident is real and active.',
         'Prioritize: stop the bleeding, restore service, communicate clearly, learn later.',
         'Reduce chaos: one plan, one source of truth, one timeline.',
+        'OPERATIONAL REALISM RULES:',
+        '  - In incidents: prioritize mitigation and restoration over root cause.',
+        '  - Early responses must be concise, decisive, and pressure-aware.',
+        'OUTPUT CONSTRAINTS:',
+        '  - Keep responses tight and authoritative.',
+        '  - Avoid filler, teaching language, and politeness scripts.',
+        '  - Do not ask casual questions unless the scenario explicitly requires user input.',
+        '  - Never include meta commentary such as "the user said" or "this response indicates".',
         'Use short sentences and active voice with operational verbs.',
         'No emojis, no lecturing, no hypotheticals unless asked.',
         'Report system state changes: "Rollback is in progress. Error rates are starting to drop but APIs are still degraded."',
@@ -269,7 +291,6 @@ export async function POST(request: NextRequest) {
         const cleanResponse = fullResponse.replaceAll(SESSION_COMPLETE_MARKER, '').trim();
         const assistantMessage = await sessionService.appendMessage(
           validatedSessionId,
-          userId,
           'assistant',
           cleanResponse,
           {
@@ -324,11 +345,6 @@ export async function POST(request: NextRequest) {
     response.headers.set('x-request-id', requestId);
     return response;
   } catch (error) {
-    if (error instanceof AuthError) {
-      logger.warn({ error: error.message }, 'Authentication error');
-      return NextResponse.json({ error: error.message, requestId }, { status: 401 });
-    }
-
     if (error instanceof SessionNotFoundError) {
       logger.warn({ sessionId: sessionId || 'unknown' }, 'Session not found');
       return NextResponse.json({ error: error.message, requestId }, { status: 404 });
