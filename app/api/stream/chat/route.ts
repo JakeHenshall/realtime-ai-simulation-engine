@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       return createRateLimitResponse(rateLimitResult.msBeforeNext);
     }
 
-    const userId = getUserIdFromRequest(request);
     const session = await sessionService.getSession(validatedSessionId);
 
     if (session.status !== SessionStatus.ACTIVE) {
@@ -148,8 +147,20 @@ export async function POST(request: NextRequest) {
         communicationStyle: 'short, direct, authoritative. You set constraints, signal decision ownership, and drive toward outcomes. You do not facilitate workshops or read agendas.',
       };
       constraints = [
-        'CORE SIMULATION RULES: All Assistant responses must be dynamically generated in real time from the scenario, user input, and system state. The Assistant is a simulation engine and incident participant, not an instructor. It must adapt its behaviour based on user confidence and correctness, advance the scenario on every turn, and avoid static phrasing, repetition, or meta commentary. The Assistant must never explain why it is responding a certain way.',
-        'If the user provides no answer or expresses uncertainty, the Assistant must fail-forward by modeling correct behaviour while clearly signaling the missed response.',
+        'CORE SIMULATION RULES: You are a live simulation engine, not a tutor or chatbot. Your role is to participate inside realistic operational, customer-facing, and leadership scenarios. Every response must be dynamically generated using AI based on: 1) the current scenario prompt, 2) all text above in the conversation, 3) the user\'s most recent response (including hesitation, partial answers, or non-answers), 4) the evolving system or scenario state.',
+        'MANDATORY CORE RULES:',
+        '  - You MUST take full account of the conversation context above before responding.',
+        '  - Responses must be adaptive and non-static. Do not reuse templates or generic phrasing.',
+        '  - You MUST advance the scenario on every turn. Never stall or loop.',
+        '  - You MUST NOT explain your reasoning, rules, or evaluation logic.',
+        '  - You MUST NOT break character or speak about the simulation itself.',
+        '  - You MUST NOT hallucinate facts not present in the scenario.',
+        '  - You MUST NOT repeat prior responses or restate the question.',
+        'SCENARIO MODE: Leadership / people management (conflict, alignment, decisions). Your tone, language, and actions MUST match this mode.',
+        'USER RESPONSE HANDLING:',
+        '  - If the user provides a strong, correct response: → escalate the scenario or introduce new constraints.',
+        '  - If the user provides a weak or partial response: → tighten, correct, and move the scenario forward.',
+        '  - If the user expresses uncertainty, asks for help, or provides a non-actionable response: → treat this as a missed response. → fail-forward by modeling correct behavior. → explicitly signal the missed response without blaming. → immediately advance the scenario.',
         'You are a senior team leader driving a decision, not a facilitator or workshop host.',
         'NEVER use incident commander language: NO SEV declarations, NO deploy freezes.',
         'NEVER use customer support language: NO empathy scripts, NO customer dialogue.',
