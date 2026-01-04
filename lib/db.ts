@@ -21,8 +21,13 @@ function getPrismaClient(): PrismaClient {
     max: 1, // Limit connections per serverless function instance
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
-    // Enable SSL for Supabase
-    ssl: connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
+    // Enable SSL for Supabase or when explicitly requested
+    ssl:
+      connectionString.includes('supabase.co') || process.env.DB_SSL === 'true'
+        ? {
+            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+          }
+        : undefined,
   });
 
   const adapter = new PrismaPg(pool);
@@ -38,4 +43,3 @@ export const db = globalForPrisma.prisma ?? getPrismaClient();
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db;
 }
-
