@@ -63,6 +63,28 @@ function SimulationContent() {
 
   useEffect(() => {
     if (sessionId) {
+      // Check for stored opening message immediately for instant display
+      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
+      if (storedOpening && messages.length === 0) {
+        try {
+          const { content, timestamp } = JSON.parse(storedOpening);
+          const openingMsg: Message = {
+            id: `msg-opening-${Date.now()}`,
+            role: "assistant",
+            content,
+            timestamp,
+            metadata: JSON.stringify({ type: "opening-message" }),
+          };
+          setMessages([openingMsg]);
+          setIsLoadingSession(false);
+          setIsAwaitingResponse(false);
+          isAwaitingResponseRef.current = false;
+          // Clear from storage once used
+          sessionStorage.removeItem(`opening-msg-${sessionId}`);
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
       loadSession();
     } else if (presetId) {
       createSession();
@@ -90,6 +112,13 @@ function SimulationContent() {
   useEffect(() => {
     isAwaitingResponseRef.current = isAwaitingResponse;
   }, [isAwaitingResponse]);
+
+  // Enable input once we have messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      setIsLoadingSession(false);
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     return () => {
@@ -152,13 +181,13 @@ function SimulationContent() {
 
       const newSession = await res.json();
       setSession(newSession);
-      // Start session and store opening message for immediate display
+      // Start session and show opening message immediately
       fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" })
         .then(async (startRes) => {
           if (startRes.ok) {
             const startResponse = await startRes.json();
-            // Store opening message in sessionStorage for instant display after navigation
             if (startResponse.openingMessage) {
+              // Store in sessionStorage for persistence after navigation
               sessionStorage.setItem(
                 `opening-msg-${newSession.id}`,
                 JSON.stringify({
@@ -166,6 +195,18 @@ function SimulationContent() {
                   timestamp: new Date().toISOString(),
                 })
               );
+              // Show immediately before navigation
+              const openingMsg: Message = {
+                id: `msg-opening-${Date.now()}`,
+                role: "assistant",
+                content: startResponse.openingMessage,
+                timestamp: new Date().toISOString(),
+                metadata: JSON.stringify({ type: "opening-message" }),
+              };
+              setMessages([openingMsg]);
+              setIsLoadingSession(false);
+              setIsAwaitingResponse(false);
+              isAwaitingResponseRef.current = false;
             }
           }
         })
@@ -248,6 +289,12 @@ function SimulationContent() {
         }
         return messagesToSet;
       });
+      
+      // Once we have messages, disable loading and enable input
+      if (messagesToSet.length > 0) {
+        setIsLoadingSession(false);
+      }
+      
       if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
