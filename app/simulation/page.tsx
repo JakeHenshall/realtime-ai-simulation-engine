@@ -402,10 +402,8 @@ function SimulationContent() {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
-          // Only reload once after a delay to sync with database, but don't start polling again
-          setTimeout(() => {
-            loadSession();
-          }, 2000);
+          // Don't call loadSession here - we already have the message in state from SSE
+          // The message is already persisted to the database by the API
         } else if (data.type === "error") {
           setIsStreaming(false);
           isStreamingRef.current = false;
@@ -482,7 +480,7 @@ function SimulationContent() {
     let pollCount = 0;
     pollIntervalRef.current = setInterval(() => {
       pollCount++;
-      
+
       // Stop polling after 20 attempts (30 seconds)
       if (pollCount >= 20) {
         if (pollIntervalRef.current) {
@@ -491,7 +489,7 @@ function SimulationContent() {
         }
         return;
       }
-      
+
       // Only check for new messages if we're still awaiting a response
       // The loadSession will stop polling when it detects a new assistant message
       if (isAwaitingResponseRef.current || isStreamingRef.current) {
@@ -517,18 +515,8 @@ function SimulationContent() {
 
       clearTimeout(thinkingTimeout);
 
-      // Immediately check for response after a short delay
-      setTimeout(() => {
-        loadSession();
-      }, 2000);
-
-      // Check again after a longer delay to catch any delayed messages
-      setTimeout(() => {
-        loadSession();
-      }, 5000);
-
-      // Don't stop polling too early - let it continue until we get a response
-      // The polling interval will stop itself after max attempts
+      // Don't call loadSession here - SSE will handle message updates
+      // The polling interval is already running as a fallback if SSE fails
 
       if (!res.ok) {
         const rawError = await res.text();
