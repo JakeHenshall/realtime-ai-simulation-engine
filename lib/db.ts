@@ -15,6 +15,9 @@ function getPrismaClient(): PrismaClient {
   }
 
   // Configure connection pool for serverless environments
+  const isSupabase = connectionString.includes('supabase.co');
+  const needsSSL = isSupabase || process.env.DB_SSL === 'true';
+  
   const pool = new Pool({
     connectionString,
     // Connection pool settings for serverless
@@ -22,12 +25,15 @@ function getPrismaClient(): PrismaClient {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     // Enable SSL for Supabase or when explicitly requested
-    ssl:
-      connectionString.includes('supabase.co') || process.env.DB_SSL === 'true'
-        ? {
-            rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-          }
-        : undefined,
+    // For Supabase in serverless environments, we need to allow self-signed certificates
+    // in the chain to avoid connection errors
+    ssl: needsSSL
+      ? {
+          rejectUnauthorized: isSupabase
+            ? false // Supabase: allow certificate chain issues in serverless
+            : process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false', // Other DBs: respect env var
+        }
+      : undefined,
   });
 
   const adapter = new PrismaPg(pool);
