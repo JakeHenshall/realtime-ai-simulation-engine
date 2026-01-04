@@ -209,22 +209,17 @@ function SimulationContent() {
         );
 
         if (newMessages.length > 0 || prev.length !== loadedMessages.length) {
-          console.log("Messages changed, updating state", {
-            prevCount: prev.length,
-            newCount: loadedMessages.length,
-            newMessagesCount: newMessages.length,
-            hasNewAssistantMessage,
-          });
-
-          // If we have a new assistant message, clear awaiting response state
+          // If we have a new assistant message, clear awaiting response state and stop polling
           if (hasNewAssistantMessage) {
             setIsAwaitingResponse(false);
             isAwaitingResponseRef.current = false;
             setIsStreaming(false);
             isStreamingRef.current = false;
-            console.log(
-              "New assistant message detected, clearing awaiting response state"
-            );
+            // Stop polling once we have a new assistant message
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
           }
 
           setMessageUpdateTrigger((t) => t + 1);
@@ -244,7 +239,6 @@ function SimulationContent() {
             }
           );
           if (contentChanged) {
-            console.log("Message content changed");
             // Check if an assistant message was updated (response complete)
             const assistantMessageUpdated = loadedMessages.some(
               (newMsg: Message, index: number) => {
@@ -261,6 +255,11 @@ function SimulationContent() {
               isAwaitingResponseRef.current = false;
               setIsStreaming(false);
               isStreamingRef.current = false;
+              // Stop polling once assistant message is updated
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+              }
             }
             setMessageUpdateTrigger((t) => t + 1);
             return [...loadedMessages].sort(
@@ -269,7 +268,7 @@ function SimulationContent() {
                 new Date(b.timestamp).getTime()
             );
           }
-          console.log("No message changes detected");
+          // No changes detected - return prev to avoid unnecessary re-renders
           return prev;
         }
       });
@@ -398,27 +397,15 @@ function SimulationContent() {
             setCurrentStream("");
             currentStreamRef.current = "";
           }
-          // Reload session to get the latest messages from the database
-          // Use a longer delay to ensure message is persisted
-          setTimeout(() => {
-            console.log("Reloading session after SSE done");
-            loadSession();
-          }, 1500);
-          // Also continue polling for a bit longer to catch any delayed messages
+          // Stop all polling since we have the complete message
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
           }
-          pollIntervalRef.current = setInterval(() => {
+          // Only reload once after a delay to sync with database, but don't start polling again
+          setTimeout(() => {
             loadSession();
           }, 2000);
-          // Stop polling after 10 seconds
-          setTimeout(() => {
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
-          }, 10000);
         } else if (data.type === "error") {
           setIsStreaming(false);
           isStreamingRef.current = false;
@@ -495,17 +482,25 @@ function SimulationContent() {
     let pollCount = 0;
     pollIntervalRef.current = setInterval(() => {
       pollCount++;
-      // Always check for new messages - don't stop just because streaming started
-      // The message might be in the database before SSE completes
-      loadSession();
-
-      // Stop polling after 20 attempts (30 seconds) or if we detect a new message
-      // We check by reloading and comparing - the loadSession will update messages state
+      
+      // Stop polling after 20 attempts (30 seconds)
       if (pollCount >= 20) {
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
-          console.log("Stopping polling - max attempts reached");
+        }
+        return;
+      }
+      
+      // Only check for new messages if we're still awaiting a response
+      // The loadSession will stop polling when it detects a new assistant message
+      if (isAwaitingResponseRef.current || isStreamingRef.current) {
+        loadSession();
+      } else {
+        // If we're not awaiting a response anymore, stop polling
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
         }
       }
     }, 1500);
