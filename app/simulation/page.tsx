@@ -43,6 +43,7 @@ function SimulationContent() {
   const isAwaitingResponseRef = useRef(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startInFlightRef = useRef(false);
+  const openingRetryRef = useRef(0);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -183,6 +184,7 @@ function SimulationContent() {
       if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
+        openingRetryRef.current = 0;
       }
 
       setShowEndSession(
@@ -201,6 +203,10 @@ function SimulationContent() {
           eventSourceRef.current.readyState === EventSource.CLOSED)
       ) {
         connectSSE();
+        if (loadedMessages.length === 0 && openingRetryRef.current < 3) {
+          openingRetryRef.current += 1;
+          setTimeout(() => loadSession(), 500 * openingRetryRef.current);
+        }
       } else if (sessionData.status === "PENDING" && !startInFlightRef.current) {
         startInFlightRef.current = true;
         fetch(`/api/sessions/${sessionId}/start`, { method: "POST" })
