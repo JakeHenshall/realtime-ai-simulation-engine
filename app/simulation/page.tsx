@@ -185,8 +185,13 @@ function SimulationContent() {
     isLoadingSessionRef.current = true;
 
     try {
-      if (!hasLoadedOnceRef.current) {
+      // Only show loading on first load, and never if we're streaming, awaiting response, or have messages
+      const isActiveConversation = isStreamingRef.current || isAwaitingResponseRef.current || messages.length > 0;
+      if (!hasLoadedOnceRef.current && !isActiveConversation) {
         setIsLoadingSession(true);
+      } else if (isActiveConversation) {
+        // Never show loading during active conversation
+        setIsLoadingSession(false);
       }
       setErrorMessage(null);
       
@@ -550,7 +555,10 @@ function SimulationContent() {
     }
   };
 
-  if (!session) {
+  // Only show loading on initial load when we have no session, no messages, and not streaming
+  const shouldShowLoading = !session && messages.length === 0 && !isStreaming && isLoadingSession;
+  
+  if (shouldShowLoading) {
     return (
       <main style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
         {errorMessage ? (
