@@ -68,19 +68,22 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now();
     let firstTokenTime: number | undefined;
 
-    // Start streaming ASAP - do heavy work in parallel
-    const [userMessage, sessionWithMessages] = await Promise.all([
-      sessionService.appendMessage(validatedSessionId, 'user', message),
-      sessionService.getSession(validatedSessionId),
-    ]);
-
-    const sessionData = sessionWithMessages as any;
-    const allMessages = (sessionData.messages || []).map((msg: any) => ({
+    const sessionData = session as any;
+    const existingMessages = (sessionData.messages || []).map((msg: any) => ({
       role: msg.role,
       content: msg.content,
     }));
-    // Use all messages for full context, not just recent 10
-    const recentMessages = allMessages;
+    const userMessage = await sessionService.appendMessage(
+      validatedSessionId,
+      'user',
+      message
+    );
+    const allMessages = [
+      ...existingMessages,
+      { role: 'user', content: message },
+    ];
+    // Limit context to keep latency and token usage predictable
+    const recentMessages = allMessages.slice(-12);
 
     // Calculate metrics in parallel while we build the prompt
     const sessionMetrics = metricsAnalyzer.calculateSessionMetrics(allMessages);
