@@ -49,4 +49,3 @@ export const GET = withApiWrapper(
     return NextResponse.json(sessions);
   }
 );
-

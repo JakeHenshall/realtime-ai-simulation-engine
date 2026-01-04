@@ -83,4 +83,3 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to end session', requestId }, { status: 500 });
   }
 }
-

@@ -55,4 +55,3 @@ export function getOrCreateUserId(request: NextRequest): string {
   const userId = `user-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   return userId;
 }
-
