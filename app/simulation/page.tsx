@@ -121,9 +121,6 @@ function SimulationContent() {
             !currentStreamRef.current &&
             isAwaitingResponseRef.current
           ) {
-            console.log(
-              "Fallback: reloading session to check for new messages"
-            );
             loadSession();
             isAwaitingResponseRef.current = false;
           }
@@ -132,7 +129,6 @@ function SimulationContent() {
       }
       if (!isAwaitingResponseRef.current) return;
       // Fallback: reload session to get any new messages
-      console.log("Fallback: reloading session to check for new messages");
       loadSession();
       isAwaitingResponseRef.current = false;
     }, 2000);
@@ -312,19 +308,11 @@ function SimulationContent() {
     const eventSource = new EventSource(`/api/stream/sse/${sessionId}`);
     eventSourceRef.current = eventSource;
 
-    eventSource.onopen = () => {
-      console.log("SSE connection opened for session:", sessionId);
-    };
+    eventSource.onopen = () => {};
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log(
-          "SSE message received:",
-          data.type,
-          data.data?.substring(0, 50)
-        );
-
         if (data.type === "token") {
           setIsAwaitingResponse(false);
           isAwaitingResponseRef.current = false;
@@ -362,11 +350,6 @@ function SimulationContent() {
                 .trim(),
               timestamp: new Date().toISOString(),
             };
-            console.log(
-              "SSE done, adding message to state:",
-              assistantMessage.id,
-              assistantMessage.content.substring(0, 50)
-            );
             // Clear awaiting response state since we have the complete message
             setIsAwaitingResponse(false);
             isAwaitingResponseRef.current = false;
@@ -384,15 +367,8 @@ function SimulationContent() {
                   ) < 5000
               );
               if (exists) {
-                console.log("Message already exists, skipping duplicate");
                 return prev;
               }
-              console.log(
-                "Adding assistant message to state:",
-                assistantMessage.id,
-                "Total messages will be:",
-                prev.length + 1
-              );
               // Return new array to ensure React detects the change
               const newMessages = [...prev, assistantMessage];
               // Force re-render by updating trigger after state update
