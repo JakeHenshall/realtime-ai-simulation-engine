@@ -284,7 +284,13 @@ function SimulationContent() {
       
       // Only update messages if they've actually changed to prevent flickering
       setMessages((prevMessages) => {
-        // If hash matches, don't update (prevents flickering)
+        // If we have more messages in the new set, always update (new message arrived)
+        if (messagesToSet.length > prevMessages.length) {
+          lastMessagesHashRef.current = messagesHash;
+          return messagesToSet;
+        }
+        
+        // If hash matches and same length, don't update (prevents flickering)
         if (messagesHash === lastMessagesHashRef.current && prevMessages.length === messagesToSet.length) {
           return prevMessages;
         }
@@ -473,16 +479,17 @@ function SimulationContent() {
               if (exists) {
                 return prev;
               }
-              return [...prev, assistantMessage];
+              const newMessages = [...prev, assistantMessage];
+              // Update hash to reflect new message immediately
+              const newHash = newMessages.map(m => `${m.role}:${m.content.substring(0, 100)}`).join('|');
+              lastMessagesHashRef.current = newHash;
+              return newMessages;
             });
             setCurrentStream("");
             currentStreamRef.current = "";
           }
-          // Fallback: reload session after a delay to ensure message appears
-          // This is a safety net in case the state update didn't trigger a re-render
-          setTimeout(() => {
-            loadSession();
-          }, 1000);
+          // Don't reload session - the message is already in state and will display
+          // The state update above should trigger a re-render immediately
         } else if (data.type === "error") {
           setIsStreaming(false);
           isStreamingRef.current = false;
