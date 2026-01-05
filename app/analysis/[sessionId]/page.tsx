@@ -144,10 +144,37 @@ export default function AnalysisPage() {
 
       {!analysis ? (
         <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#111', borderRadius: '4px' }}>
-          <p style={{ color: '#666', marginBottom: '1rem' }}>
-            Analysis is being generated. Please wait...
+          <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                border: '4px solid #333',
+                borderTop: '4px solid #8a2be2',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+              }}
+            />
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
+            `}</style>
+          </div>
+          <p style={{ color: '#666', marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 500 }}>
+            Analysis is being generated
           </p>
-          <p style={{ color: '#555', fontSize: '0.9rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <span style={{ color: '#8a2be2', animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '0s' }}>●</span>
+            <span style={{ color: '#8a2be2', animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '0.2s' }}>●</span>
+            <span style={{ color: '#8a2be2', animation: 'pulse 1.4s ease-in-out infinite', animationDelay: '0.4s' }}>●</span>
+          </div>
+          <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
             This page will automatically refresh when the analysis is ready.
           </p>
           <button
