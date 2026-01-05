@@ -8,38 +8,18 @@ export class UserPromptBuilder {
   }
 
   build(): string {
-    const parts: string[] = [];
-
+    // Minimal user prompt - conversation history is now passed as messages
+    // Only include the latest user message or action if needed
     if (this.config.action) {
-      parts.push(`Action requested: ${this.config.action}`);
-      parts.push('');
+      return `Action requested: ${this.config.action}`;
     }
 
-    parts.push(`Current context:\n${this.config.context}`);
-
-    if (this.config.recentMessages && this.config.recentMessages.length > 0) {
-      parts.push('');
-      parts.push(this.buildRecentMessagesSection());
+    if (this.config.context) {
+      return this.config.context;
     }
 
-    return parts.join('\n').trim();
-  }
-
-  private buildRecentMessagesSection(): string {
-    if (!this.config.recentMessages || this.config.recentMessages.length === 0) {
-      return '';
-    }
-
-    // Use all recent messages (already limited to 12 in the route)
-    // This ensures the opening message and full conversation context is included
-    const messages = this.config.recentMessages
-      .map((msg, idx) => {
-        const role = msg.role === 'assistant' ? 'Assistant' : msg.role === 'user' ? 'User' : msg.role;
-        return `${role}: ${msg.content}`;
-      })
-      .join('\n');
-
-    return `Recent conversation:\n${messages}`;
+    // Default minimal prompt
+    return 'Advance the simulation based on the conversation above.';
   }
 }
 

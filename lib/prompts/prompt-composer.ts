@@ -1,11 +1,7 @@
-import { LLMMessage } from '../llm-client';
-import { SystemPromptBuilder } from './system-builder';
-import { UserPromptBuilder } from './user-builder';
-import {
-  SystemPromptConfig,
-  UserPromptConfig,
-  PromptContext,
-} from './types';
+import { LLMMessage } from "../llm-client";
+import { SystemPromptBuilder } from "./system-builder";
+import { PromptContext, SystemPromptConfig, UserPromptConfig } from "./types";
+import { UserPromptBuilder } from "./user-builder";
 
 export interface ComposedPrompt {
   messages: LLMMessage[];
@@ -14,7 +10,10 @@ export interface ComposedPrompt {
 }
 
 export class PromptComposer {
-  compose(context: PromptContext, userConfig: UserPromptConfig): ComposedPrompt {
+  compose(
+    context: PromptContext,
+    userConfig: UserPromptConfig
+  ): ComposedPrompt {
     const systemConfig: SystemPromptConfig = {
       persona: context.persona,
       objective: context.objective,
@@ -23,35 +22,48 @@ export class PromptComposer {
       safetyEnforcement: true,
     };
 
-    const systemBuilder = new SystemPromptBuilder(systemConfig);
-    const systemPrompt = systemBuilder.build();
+    const systemPrompt = new SystemPromptBuilder(systemConfig).build();
 
+    // Keep user prompt minimal to reduce injection and contradictions
     const userBuilder = new UserPromptBuilder({
       ...userConfig,
-      context: userConfig.context || context.sessionContext || '',
+      context: userConfig.context || context.sessionContext || "",
     });
-    const userPrompt = userBuilder.build();
 
+    // Optional: pass deterministic hints as a *single line* in user prompt
+    // (Better: include these in the system prompt builder if you can.)
+    let userPrompt = userBuilder.build();
+    const hintLines: string[] = [];
+
+    if (context.responseClassHint) {
+      hintLines.push(`Classification hint: ${context.responseClassHint}`);
+    }
+    if (context.simState) {
+      hintLines.push(`Simulation state: ${JSON.stringify(context.simState)}`);
+    }
+    if (hintLines.length) {
+      userPrompt = `${hintLines.join("\n")}\n\n${userPrompt}`;
+    }
+
+    const history = context.recentMessages ?? [];
+
+    // IMPORTANT: Do not duplicate the latest user message in both history and user prompt.
+    // Your backend should build `recentMessages` that already includes the latest user turn,
+    // OR keep history without it. Pick one and be consistent.
     const messages: LLMMessage[] = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
+      { role: "system", content: systemPrompt },
+      ...history,
+      { role: "user", content: userPrompt },
     ];
 
-    return {
-      messages,
-      systemPrompt,
-      userPrompt,
-    };
+    return { messages, systemPrompt, userPrompt };
   }
 
   buildSystemPrompt(config: SystemPromptConfig): string {
-    const builder = new SystemPromptBuilder(config);
-    return builder.build();
+    return new SystemPromptBuilder(config).build();
   }
 
   buildUserPrompt(config: UserPromptConfig): string {
-    const builder = new UserPromptBuilder(config);
-    return builder.build();
+    return new UserPromptBuilder(config).build();
   }
 }
-

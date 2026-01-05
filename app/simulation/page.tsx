@@ -47,6 +47,7 @@ function SimulationContent() {
   const hasLoadedOnceRef = useRef(false);
   const isLoadingSessionRef = useRef(false);
   const lastMessagesHashRef = useRef<string>("");
+  const lastSSEMessageTimeRef = useRef<number>(0);
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -161,6 +162,7 @@ function SimulationContent() {
             isAwaitingResponseRef.current
           ) {
             // Reload to get message from DB if SSE didn't work
+            // But only if we're not in the middle of another message
             loadSession();
             isAwaitingResponseRef.current = false;
           }
@@ -169,8 +171,11 @@ function SimulationContent() {
       }
       if (!isAwaitingResponseRef.current) return;
       // Fallback: reload session to get any new messages if SSE didn't deliver
-      loadSession();
-      isAwaitingResponseRef.current = false;
+      // But only if we're not currently streaming
+      if (!isStreamingRef.current && !currentStreamRef.current) {
+        loadSession();
+        isAwaitingResponseRef.current = false;
+      }
     }, 3000);
   };
 
@@ -233,6 +238,19 @@ function SimulationContent() {
     
     // Prevent concurrent loadSession calls to avoid flickering
     if (isLoadingSessionRef.current) return;
+    
+    // Don't reload if we're actively streaming - SSE is the source of truth
+    if (isStreamingRef.current || currentStreamRef.current) {
+      return;
+    }
+    
+    // Don't reload if we just received a message via SSE (within last 2 seconds)
+    // This prevents loadSession from overwriting messages that SSE just added
+    const timeSinceLastSSE = Date.now() - lastSSEMessageTimeRef.current;
+    if (timeSinceLastSSE < 2000) {
+      return;
+    }
+    
     isLoadingSessionRef.current = true;
 
     try {
@@ -285,6 +303,12 @@ function SimulationContent() {
       
       // Only update messages if they've actually changed to prevent flickering
       setMessages((prevMessages) => {
+        // CRITICAL: Never overwrite messages if we're currently streaming or just finished streaming
+        // This prevents loadSession from overwriting messages that were just added via SSE
+        if (isStreamingRef.current || currentStreamRef.current) {
+          return prevMessages;
+        }
+        
         // If we have more messages in state than DB, keep state (SSE just added a message)
         // This prevents loadSession from overwriting messages that were just added via SSE
         if (prevMessages.length > messagesToSet.length) {
@@ -346,9 +370,18 @@ function SimulationContent() {
       hasLoadedOnceRef.current = true;
 
       // Only clear stream if we're not currently streaming
-      if (!isStreamingRef.current) {
-        setCurrentStream("");
-        currentStreamRef.current = "";
+      // Don't clear if we just finished streaming (give it a moment to settle)
+      if (!isStreamingRef.current && !currentStreamRef.current) {
+        // Stream already cleared, nothing to do
+      } else if (!isStreamingRef.current && currentStreamRef.current) {
+        // Stream should have been cleared by SSE "done" handler, but if not, clear it
+        // But wait a bit to avoid race conditions
+        setTimeout(() => {
+          if (!isStreamingRef.current) {
+            setCurrentStream("");
+            currentStreamRef.current = "";
+          }
+        }, 200);
       }
 
       if (
@@ -430,7 +463,9 @@ function SimulationContent() {
     const eventSource = new EventSource(`/api/stream/sse/${sessionId}`);
     eventSourceRef.current = eventSource;
 
-    eventSource.onopen = () => {};
+    eventSource.onopen = () => {
+      console.log("SSE: Connection opened for session", sessionId);
+    };
 
     eventSource.onmessage = (event) => {
       try {
@@ -450,51 +485,76 @@ function SimulationContent() {
             return next;
           });
         } else if (data.type === "done") {
+          console.log("SSE: Received done event, streamContent length:", currentStreamRef.current.length);
+        } else if (data.type === "done") {
+          const streamContent = currentStreamRef.current;
+          
+          // Clear streaming state first
           setIsStreaming(false);
           isStreamingRef.current = false;
           setIsAwaitingResponse(false);
           isAwaitingResponseRef.current = false;
           clearResponseFallback();
           
-          const streamContent = currentStreamRef.current;
           if (streamContent && streamContent.trim()) {
             if (streamContent.includes(completionMarker)) {
               setShowEndSession(true);
             }
+            const cleanContent = streamContent.replaceAll(completionMarker, "").trim();
             const assistantMessage = {
-              id: `msg-${Date.now()}`,
-              role: "assistant",
-              content: streamContent
-                .replaceAll(completionMarker, "")
-                .trim(),
+              id: `msg-sse-${Date.now()}-${Math.random()}`,
+              role: "assistant" as const,
+              content: cleanContent,
               timestamp: new Date().toISOString(),
             };
             
             // Force update messages - this is the source of truth from SSE
+            // Use a functional update to ensure React detects the change
             setMessages((prev) => {
-              // Check if this exact message already exists (by content)
-              const exists = prev.some(
-                (msg) =>
-                  msg.role === "assistant" &&
-                  msg.content === assistantMessage.content
-              );
-              if (exists) {
-                // Message already exists, return prev to avoid duplicate
+              // Check if this exact message already exists (by content and being the last assistant message)
+              // Only prevent duplicate if it's the same as the last assistant message
+              const lastAssistantMsg = [...prev].reverse().find(msg => msg.role === "assistant");
+              if (lastAssistantMsg && lastAssistantMsg.content === assistantMessage.content) {
+                // This exact message already exists as the last assistant message, return prev to avoid duplicate
+                console.log("SSE: Message already exists, skipping duplicate");
                 return prev;
               }
+              
+              console.log("SSE: Adding new assistant message", assistantMessage.id, cleanContent.substring(0, 50));
+              
+              // Create a completely new array to force React to re-render
+              // Use spread operator to create new array reference
               const newMessages = [...prev, assistantMessage];
+              
               // Update hash to reflect new message immediately
               const newHash = newMessages.map(m => `${m.role}:${m.content.substring(0, 100)}`).join('|');
               lastMessagesHashRef.current = newHash;
+              // Track when we last added a message via SSE
+              lastSSEMessageTimeRef.current = Date.now();
+              
+              // Return new array reference to force re-render
               return newMessages;
             });
             
-            // Clear stream after adding to messages
+            // Clear stream IMMEDIATELY after adding to messages to prevent showing in both places
             setCurrentStream("");
             currentStreamRef.current = "";
+            
+            // Scroll to bottom after message is added
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 150);
+            
+            // Don't call loadSession here - SSE is the source of truth
+            // Only reload if we need to sync state, but wait a bit to avoid race conditions
           } else {
             // If no stream content, reload from DB as fallback
-            setTimeout(() => loadSession(), 500);
+            setTimeout(() => {
+              // Only reload if we're not currently streaming
+              if (!isStreamingRef.current && !currentStreamRef.current) {
+                loadSession();
+              }
+            }, 500);
           }
         } else if (data.type === "error") {
           setIsStreaming(false);
@@ -514,18 +574,30 @@ function SimulationContent() {
     };
 
     eventSource.onerror = (error) => {
-      console.error("SSE connection error:", error);
+      console.error("SSE connection error:", error, "readyState:", eventSource.readyState);
       // Don't close on first error - might be temporary
       // Only close if connection is actually closed
       if (eventSource.readyState === EventSource.CLOSED) {
+        console.log("SSE: Connection closed, attempting to reconnect...");
         eventSource.close();
         eventSourceRef.current = null;
         setIsStreaming(false);
         isStreamingRef.current = false;
         setIsAwaitingResponse(false);
         clearResponseFallback();
+        
+        // Try to reconnect after a short delay
+        if (sessionId) {
+          setTimeout(() => {
+            if (!eventSourceRef.current || eventSourceRef.current.readyState === EventSource.CLOSED) {
+              console.log("SSE: Reconnecting...");
+              connectSSE();
+            }
+          }, 1000);
+        }
+        
         setErrorMessage(
-          "Lost connection to the session stream. Please try again."
+          "Lost connection to the session stream. Reconnecting..."
         );
       }
     };
@@ -751,9 +823,9 @@ function SimulationContent() {
             No messages yet. Start the conversation.
           </p>
         )}
-        {messages.map((msg) => (
+        {messages.map((msg, idx) => (
           <div
-            key={msg.id}
+            key={`${msg.id}-${idx}-${msg.timestamp}`}
             style={{
               marginBottom: "1rem",
               padding: "0.75rem",
@@ -883,8 +955,10 @@ function SimulationContent() {
           </div>
         ))}
 
+        {/* Show streaming content only if we're actively streaming and haven't added it to messages yet */}
         {isStreaming && currentStream && (
           <div
+            key={`streaming-${currentStream.length}`}
             style={{
               marginBottom: "1rem",
               padding: "0.75rem",

@@ -1,4 +1,5 @@
 import { PressureLevel } from '@prisma/client';
+import { LLMMessage } from '../llm-client';
 
 export interface AgentPersona {
   name: string;
@@ -14,12 +15,23 @@ export interface AgentObjective {
   constraints?: string[];
 }
 
+export type ResponseClass = 'NON_ACTIONABLE' | 'WEAK' | 'STRONG' | 'BAD_OWNERSHIP';
+
 export interface PromptContext {
   persona: AgentPersona;
   objective: AgentObjective;
   pressure: PressureLevel;
   behaviorModifier?: BehaviorModifier;
   sessionContext?: string;
+
+  // Actual recent conversation messages to send to the LLM
+  recentMessages?: LLMMessage[];
+
+  // Optional deterministic hint from backend classifier
+  responseClassHint?: ResponseClass;
+
+  // Optional compact state blob (if tracking state machine)
+  simState?: Record<string, any>;
 }
 
 export type BehaviorModifier = 'escalate' | 'de-escalate' | 'repeat' | 'normal';
