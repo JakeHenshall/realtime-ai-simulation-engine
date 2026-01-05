@@ -46,6 +46,7 @@ function SimulationContent() {
   const openingRetryRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
   const isLoadingSessionRef = useRef(false);
+  const lastMessagesHashRef = useRef<string>("");
   const completionMarker = "[[SESSION_COMPLETE]]";
   const isMessageMarkedComplete = (message: Message) => {
     if (message.role !== "assistant") return false;
@@ -62,27 +63,35 @@ function SimulationContent() {
   };
 
   useEffect(() => {
+    // Reset hash when session changes to ensure fresh comparison
+    lastMessagesHashRef.current = "";
+    
     if (sessionId) {
-      // Check for stored opening message immediately for instant display
-      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
-      if (storedOpening && messages.length === 0) {
-        try {
-          const { content, timestamp } = JSON.parse(storedOpening);
-          const openingMsg: Message = {
-            id: `msg-opening-${Date.now()}`,
-            role: "assistant",
-            content,
-            timestamp,
-            metadata: JSON.stringify({ type: "opening-message" }),
-          };
-          setMessages([openingMsg]);
-          setIsLoadingSession(false);
-          setIsAwaitingResponse(false);
-          isAwaitingResponseRef.current = false;
-          // Clear from storage once used
-          sessionStorage.removeItem(`opening-msg-${sessionId}`);
-        } catch (e) {
-          // Ignore parse errors
+      // Only check for stored opening message if we don't have messages yet
+      // and haven't loaded once (to prevent flickering on navigation)
+      if (messages.length === 0 && !hasLoadedOnceRef.current) {
+        const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
+        if (storedOpening) {
+          try {
+            const { content, timestamp } = JSON.parse(storedOpening);
+            const openingMsg: Message = {
+              id: `msg-opening-${Date.now()}`,
+              role: "assistant",
+              content,
+              timestamp,
+              metadata: JSON.stringify({ type: "opening-message" }),
+            };
+            setMessages([openingMsg]);
+            setIsLoadingSession(false);
+            setIsAwaitingResponse(false);
+            isAwaitingResponseRef.current = false;
+            // Clear from storage once used
+            sessionStorage.removeItem(`opening-msg-${sessionId}`);
+            // Update hash to prevent duplicate
+            lastMessagesHashRef.current = `assistant:${content.substring(0, 100)}`;
+          } catch (e) {
+            // Ignore parse errors
+          }
         }
       }
       loadSession();
@@ -270,22 +279,39 @@ function SimulationContent() {
         messagesToSet = messages;
       }
 
+      // Create a hash of messages content to prevent unnecessary updates
+      const messagesHash = messagesToSet.map(m => `${m.role}:${m.content.substring(0, 100)}`).join('|');
+      
       // Only update messages if they've actually changed to prevent flickering
       setMessages((prevMessages) => {
-        // Check if messages are the same (by content and timestamp)
-        if (prevMessages.length === messagesToSet.length) {
+        // If hash matches, don't update (prevents flickering)
+        if (messagesHash === lastMessagesHashRef.current && prevMessages.length === messagesToSet.length) {
+          return prevMessages;
+        }
+        
+        // If we have the same number of messages, check if content is the same
+        if (prevMessages.length === messagesToSet.length && prevMessages.length > 0) {
+          // Compare by content and role (not ID, as IDs might differ)
           const isSame = prevMessages.every((prev, idx) => {
             const next = messagesToSet[idx];
             return (
-              prev.id === next.id &&
-              prev.content === next.content &&
-              prev.timestamp === next.timestamp
+              prev.role === next.role &&
+              prev.content === next.content
             );
           });
           if (isSame) {
             return prevMessages; // No change, return previous to prevent re-render
           }
         }
+        
+        // If prevMessages is empty but messagesToSet has content, always update
+        // If messagesToSet is empty but prevMessages has content, keep prevMessages
+        if (messagesToSet.length === 0 && prevMessages.length > 0) {
+          return prevMessages; // Don't clear messages if DB returns empty
+        }
+        
+        // Update hash and return new messages
+        lastMessagesHashRef.current = messagesHash;
         return messagesToSet;
       });
       
