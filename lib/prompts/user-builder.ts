@@ -30,10 +30,11 @@ export class UserPromptBuilder {
       return '';
     }
 
+    // Use all recent messages (already limited to 12 in the route)
+    // This ensures the opening message and full conversation context is included
     const messages = this.config.recentMessages
-      .slice(-5)
       .map((msg, idx) => {
-        const role = msg.role === 'assistant' ? 'You' : msg.role;
+        const role = msg.role === 'assistant' ? 'Assistant' : msg.role === 'user' ? 'User' : msg.role;
         return `${role}: ${msg.content}`;
       })
       .join('\n');
