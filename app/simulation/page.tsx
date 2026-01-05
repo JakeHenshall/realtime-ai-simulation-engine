@@ -149,28 +149,29 @@ function SimulationContent() {
     clearResponseFallback();
     isAwaitingResponseRef.current = true;
 
-    // First check after 2 seconds
+    // First check after 3 seconds
     fallbackTimerRef.current = setTimeout(() => {
       if (!sessionId) return;
       if (isStreamingRef.current || currentStreamRef.current) {
-        // If streaming started, check again in 3 more seconds
+        // If streaming started, check again in 5 more seconds after streaming stops
         fallbackTimerRef.current = setTimeout(() => {
           if (
             !isStreamingRef.current &&
             !currentStreamRef.current &&
             isAwaitingResponseRef.current
           ) {
+            // Reload to get message from DB if SSE didn't work
             loadSession();
             isAwaitingResponseRef.current = false;
           }
-        }, 3000);
+        }, 5000);
         return;
       }
       if (!isAwaitingResponseRef.current) return;
-      // Fallback: reload session to get any new messages
+      // Fallback: reload session to get any new messages if SSE didn't deliver
       loadSession();
       isAwaitingResponseRef.current = false;
-    }, 2000);
+    }, 3000);
   };
 
   const createSession = async () => {
@@ -284,7 +285,13 @@ function SimulationContent() {
       
       // Only update messages if they've actually changed to prevent flickering
       setMessages((prevMessages) => {
-        // If we have more messages in the new set, always update (new message arrived)
+        // If we have more messages in state than DB, keep state (SSE just added a message)
+        // This prevents loadSession from overwriting messages that were just added via SSE
+        if (prevMessages.length > messagesToSet.length) {
+          return prevMessages;
+        }
+        
+        // If we have more messages in the new set, always update (new message arrived from DB)
         if (messagesToSet.length > prevMessages.length) {
           lastMessagesHashRef.current = messagesHash;
           return messagesToSet;
@@ -448,35 +455,31 @@ function SimulationContent() {
           setIsAwaitingResponse(false);
           isAwaitingResponseRef.current = false;
           clearResponseFallback();
-          if (currentStreamRef.current) {
-            if (currentStreamRef.current.includes(completionMarker)) {
+          
+          const streamContent = currentStreamRef.current;
+          if (streamContent && streamContent.trim()) {
+            if (streamContent.includes(completionMarker)) {
               setShowEndSession(true);
             }
             const assistantMessage = {
               id: `msg-${Date.now()}`,
               role: "assistant",
-              content: currentStreamRef.current
+              content: streamContent
                 .replaceAll(completionMarker, "")
                 .trim(),
               timestamp: new Date().toISOString(),
             };
-            // Clear awaiting response state since we have the complete message
-            setIsAwaitingResponse(false);
-            isAwaitingResponseRef.current = false;
-            setIsStreaming(false);
-            isStreamingRef.current = false;
+            
+            // Force update messages - this is the source of truth from SSE
             setMessages((prev) => {
-              // Check if message already exists to avoid duplicates
+              // Check if this exact message already exists (by content)
               const exists = prev.some(
                 (msg) =>
                   msg.role === "assistant" &&
-                  msg.content === assistantMessage.content &&
-                  Math.abs(
-                    new Date(msg.timestamp).getTime() -
-                      new Date(assistantMessage.timestamp).getTime()
-                  ) < 5000
+                  msg.content === assistantMessage.content
               );
               if (exists) {
+                // Message already exists, return prev to avoid duplicate
                 return prev;
               }
               const newMessages = [...prev, assistantMessage];
@@ -485,11 +488,14 @@ function SimulationContent() {
               lastMessagesHashRef.current = newHash;
               return newMessages;
             });
+            
+            // Clear stream after adding to messages
             setCurrentStream("");
             currentStreamRef.current = "";
+          } else {
+            // If no stream content, reload from DB as fallback
+            setTimeout(() => loadSession(), 500);
           }
-          // Don't reload session - the message is already in state and will display
-          // The state update above should trigger a re-render immediately
         } else if (data.type === "error") {
           setIsStreaming(false);
           isStreamingRef.current = false;
