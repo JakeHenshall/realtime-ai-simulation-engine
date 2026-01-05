@@ -249,26 +249,25 @@ function SimulationContent() {
         }
       );
 
-      // Check for stored opening message and merge intelligently
-      const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
+      // Check if we already have an opening message in current messages
+      const hasOpeningMessage = messages.some((msg) => {
+        if (msg.role !== "assistant") return false;
+        try {
+          const metadata = msg.metadata ? JSON.parse(msg.metadata) : {};
+          return metadata.type === "opening-message" || msg.content.includes("Simulated");
+        } catch {
+          return msg.content.includes("Simulated");
+        }
+      });
+      
       let messagesToSet = loadedMessages;
       
-      if (storedOpening && loadedMessages.length === 0) {
-        try {
-          const { content, timestamp } = JSON.parse(storedOpening);
-          const openingMsg: Message = {
-            id: `msg-opening-${Date.now()}`,
-            role: "assistant",
-            content,
-            timestamp,
-            metadata: JSON.stringify({ type: "opening-message" }),
-          };
-          messagesToSet = [openingMsg];
-          // Clear from storage once used
-          sessionStorage.removeItem(`opening-msg-${sessionId}`);
-        } catch (e) {
-          // Ignore parse errors
-        }
+      // If DB has messages, use those (they're the source of truth)
+      // If DB has no messages but we have one from useEffect, keep the one from useEffect
+      // This prevents duplicates when both useEffect and DB try to add opening messages
+      if (loadedMessages.length === 0 && hasOpeningMessage) {
+        // Keep the opening message from useEffect, don't overwrite with empty array
+        messagesToSet = messages;
       }
 
       // Only update messages if they've actually changed to prevent flickering
