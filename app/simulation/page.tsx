@@ -326,6 +326,7 @@ function SimulationContent() {
         openingRetryRef.current = 0;
       }
 
+      // Show End Session button if session is marked complete
       setShowEndSession(
         loadedMessages.some((msg: Message) => isMessageMarkedComplete(msg))
       );
@@ -689,6 +690,22 @@ function SimulationContent() {
             {session?.name || "Simulation"}
           </h1>
         </div>
+        {(showEndSession || messages.length > 0) && (
+          <button
+            onClick={endSession}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#333",
+              border: "1px solid #555",
+              borderRadius: "4px",
+              color: "#fff",
+              fontSize: "0.9rem",
+              cursor: "pointer",
+            }}
+          >
+            End Session
+          </button>
+        )}
       </div>
 
       {errorMessage && (
@@ -973,38 +990,16 @@ function SimulationContent() {
         <div ref={messagesEndRef} />
       </div>
 
-      {showEndSession && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "1rem",
-          }}
-        >
-          <button
-            onClick={endSession}
-            style={{
-              padding: "0.75rem 1.5rem",
-              backgroundColor: "#333",
-              border: "1px solid #555",
-              borderRadius: "6px",
-              color: "#fff",
-              fontSize: "0.95rem",
-            }}
-          >
-            End Session
-          </button>
-        </div>
-      )}
-
       {(isAwaitingResponse || isStreaming) && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            marginBottom: "0.5rem",
+            marginBottom: "1rem",
+            padding: "0.75rem",
             color: "#aaa",
+            fontSize: "0.9rem",
           }}
         >
           <span className="spinner" aria-hidden="true" />
