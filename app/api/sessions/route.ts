@@ -40,8 +40,20 @@ export const POST = withApiWrapper(
 export const GET = withApiWrapper(
   async (request: NextRequest, { logger }) => {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    
+    // Validate and sanitize query parameters
+    const limitStr = searchParams.get('limit') || '50';
+    const offsetStr = searchParams.get('offset') || '0';
+    
+    const limit = Math.min(Math.max(parseInt(limitStr, 10) || 50, 1), 100);
+    const offset = Math.max(parseInt(offsetStr, 10) || 0, 0);
+    
+    if (isNaN(limit) || isNaN(offset)) {
+      return NextResponse.json(
+        { error: 'Invalid limit or offset parameter' },
+        { status: 400 }
+      );
+    }
 
     const repository = new SessionRepository();
     const sessions = await repository.list(limit, offset);
