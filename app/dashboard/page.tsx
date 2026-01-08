@@ -167,6 +167,28 @@ export default function DashboardPage() {
               gap: '0.5rem',
             }}
           >
+            {/* Header row */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                gap: '1rem',
+                padding: '0.75rem 1rem',
+                color: '#888',
+                fontSize: '0.8rem',
+                fontWeight: '500',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                borderBottom: '1px solid #333',
+              }}
+            >
+              <div>Session</div>
+              <div>Duration</div>
+              <div>Clarity</div>
+              <div>Accuracy</div>
+              <div>Empathy</div>
+              <div>Completed</div>
+            </div>
             {data.sessions.map((session) => (
               <Link
                 key={session.id}

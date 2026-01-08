@@ -5,17 +5,24 @@ export interface AnalysisJob {
   nextRetryAt?: Date;
 }
 
+// Global singleton for Next.js dev mode hot reload persistence
+declare global {
+  var __analysisQueue__: InProcessQueue | undefined;
+}
+
 class InProcessQueue {
   private queue: AnalysisJob[] = [];
   private processing = false;
   private processor?: (job: AnalysisJob) => Promise<void>;
 
   enqueue(job: AnalysisJob): void {
+    console.log('[AnalysisQueue] Enqueueing job for session:', job.sessionId);
     this.queue.push(job);
     this.process();
   }
 
   setProcessor(processor: (job: AnalysisJob) => Promise<void>): void {
+    console.log('[AnalysisQueue] Processor set, queue length:', this.queue.length);
     this.processor = processor;
     this.process();
   }
@@ -26,6 +33,7 @@ class InProcessQueue {
     }
 
     this.processing = true;
+    console.log('[AnalysisQueue] Processing started, queue length:', this.queue.length);
 
     try {
       while (this.queue.length > 0) {
@@ -48,14 +56,18 @@ class InProcessQueue {
         // Process ready jobs
         for (const job of readyJobs) {
           try {
+            console.log('[AnalysisQueue] Processing job for session:', job.sessionId);
             await this.processor(job);
+            console.log('[AnalysisQueue] Job completed for session:', job.sessionId);
           } catch (error) {
+            console.error('[AnalysisQueue] Job failed for session:', job.sessionId, error);
             // If job has retries left, re-queue with backoff
             if (job.attempts < job.maxAttempts) {
               const backoffMs = Math.min(1000 * Math.pow(2, job.attempts), 30000); // Max 30s
               job.attempts++;
               job.nextRetryAt = new Date(Date.now() + backoffMs);
               this.queue.push(job);
+              console.log('[AnalysisQueue] Job re-queued, attempt:', job.attempts);
             }
             // Otherwise, job is failed - could log or handle differently
           }
@@ -84,5 +96,6 @@ class InProcessQueue {
   }
 }
 
-export const analysisQueue = new InProcessQueue();
+// Use global singleton to persist across hot reloads
+export const analysisQueue = global.__analysisQueue__ || (global.__analysisQueue__ = new InProcessQueue());
 

@@ -8,6 +8,7 @@ import {
 import { getRequestId } from '@/lib/middleware/request-id';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/middleware/rate-limit';
 import { createRequestLogger } from '@/lib/logger';
+import OpenAI from 'openai';
 
 const sessionService = new SessionService(new SessionRepository());
 
@@ -16,7 +17,7 @@ type PresetConfig = {
   openingMessages?: string[];
 };
 
-const DEFAULT_OPENING_MESSAGES: Record<string, string[]> = {
+const SCENARIO_PROMPTS: Record<string, string[]> = {
   'Crisis Management': [
     "Simulated Critical System Outage: core services are down for thousands of users. You're the on-call lead. What are your first three actions and how will you communicate?",
     'Simulated Critical System Outage: database writes are timing out across the platform. What is your immediate triage plan and who do you notify?',
@@ -43,7 +44,7 @@ const pickRandomMessage = (messages: string[]): string => {
   return trimmed[index] ?? '';
 };
 
-const resolveOpeningMessage = (sessionData: {
+const getScenarioPrompt = (sessionData: {
   preset?: { name?: string; config?: string } | null;
 }): string | null => {
   const presetName = sessionData.preset?.name ?? '';
@@ -63,7 +64,7 @@ const resolveOpeningMessage = (sessionData: {
     }
   }
 
-  const fallbackPool = DEFAULT_OPENING_MESSAGES[presetName];
+  const fallbackPool = SCENARIO_PROMPTS[presetName];
   if (fallbackPool?.length) {
     return pickRandomMessage(fallbackPool) || null;
   }
@@ -80,6 +81,41 @@ const resolveOpeningMessage = (sessionData: {
   }
 
   return null;
+};
+
+const generateOpeningMessageFromOpenAI = async (
+  scenarioPrompt: string,
+  presetName: string
+): Promise<string> => {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  });
+
+  const systemPrompt = getSystemPromptForPreset(presetName);
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: scenarioPrompt },
+    ],
+    temperature: 0.7,
+    max_tokens: 300,
+  });
+
+  return response.choices[0]?.message?.content || scenarioPrompt;
+};
+
+const getSystemPromptForPreset = (presetName: string): string => {
+  switch (presetName) {
+    case 'Customer Support Escalation':
+      return `You are a Senior Customer Support Specialist. Generate an opening response to begin a customer support simulation scenario. Be direct, empathetic, and action-oriented. This is the first message to set the scene for the user to respond to. Keep it concise (2-3 sentences max). Do not use emojis.`;
+    case 'Team Collaboration':
+      return `You are a Senior Team Leader. Generate an opening response to begin a team collaboration simulation scenario. Be direct, outcome-focused, and set clear expectations. This is the first message to set the scene for the user to respond to. Keep it concise (2-3 sentences max). Do not use emojis.`;
+    default:
+      return `You are a Senior Incident Commander. Generate an opening response to begin a crisis management simulation scenario. Be calm, direct, and operational. This is the first message to set the scene for the user to respond to. Keep it concise (2-3 sentences max). Do not use emojis.`;
+  }
 };
 
 export async function POST(
@@ -105,22 +141,49 @@ export async function POST(
     const session = await sessionService.startSession(id);
     const sessionData = (await sessionService.getSession(id)) as any;
     const existingMessages = sessionData?.messages ?? [];
-    const openingMessage = resolveOpeningMessage(sessionData);
+    const scenarioPrompt = getScenarioPrompt(sessionData);
+    const presetName = sessionData.preset?.name ?? '';
     
-    // Create opening message in background, but return it immediately
-    if (openingMessage && existingMessages.length === 0) {
-      // Don't await - let it happen in background for instant response
-      sessionService.appendMessage(id, 'assistant', openingMessage, {
-        type: 'opening-message',
-      }).catch((err) => {
-        logger.error({ error: err instanceof Error ? err.message : 'Unknown error' }, 'Failed to save opening message');
-      });
+    let openingMessage: string | null = null;
+    
+    // Only generate opening message if there are NO messages (including any that might have been created concurrently)
+    if (scenarioPrompt && existingMessages.length === 0) {
+      // Double-check messages again after getting session to prevent race conditions
+      const freshSessionData = (await sessionService.getSession(id)) as any;
+      const freshMessages = freshSessionData?.messages ?? [];
+      
+      if (freshMessages.length === 0) {
+        try {
+          openingMessage = await generateOpeningMessageFromOpenAI(scenarioPrompt, presetName);
+          
+          // Await the message save to prevent race conditions
+          await sessionService.appendMessage(id, 'assistant', openingMessage, {
+            type: 'opening-message',
+            provider: 'openai',
+          });
+        } catch (err) {
+          // Fallback to scenario prompt if OpenAI fails
+          logger.warn({ error: err instanceof Error ? err.message : 'Unknown error' }, 'OpenAI opening message generation failed, using fallback');
+          openingMessage = scenarioPrompt;
+          try {
+            await sessionService.appendMessage(id, 'assistant', openingMessage, {
+              type: 'opening-message',
+              provider: 'fallback',
+            });
+          } catch (saveErr) {
+            logger.error({ error: saveErr instanceof Error ? saveErr.message : 'Unknown error' }, 'Failed to save opening message');
+          }
+        }
+      } else {
+        // Message already exists, use the first one as opening message for response
+        openingMessage = freshMessages[0].content;
+      }
     }
     
-    logger.info({ sessionId: id }, 'Session started');
+    logger.info({ sessionId: id, provider: 'openai' }, 'Session started with OpenAI-generated opening');
     const response = NextResponse.json({
       ...session,
-      openingMessage: openingMessage && existingMessages.length === 0 ? openingMessage : undefined,
+      openingMessage: openingMessage || undefined,
     });
     response.headers.set('x-request-id', requestId);
     return response;

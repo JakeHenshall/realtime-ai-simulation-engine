@@ -12,25 +12,32 @@ export async function GET(
 ) {
   try {
     const { sessionId } = await params;
+    console.log(`[SSE Route] Connection request for session ${sessionId}`);
+    
     await sessionService.getSession(sessionId);
 
     const clientId = `${Date.now()}-${Math.random()}`;
     pubsub.subscribe(sessionId, clientId);
+    console.log(`[SSE Route] Client ${clientId} subscribed to session ${sessionId}`);
 
     const stream = new ReadableStream({
       start(controller) {
         const handler = (event: StreamEvent) => {
           try {
+            console.log(`[SSE Route] Sending ${event.type} event to client for session ${sessionId}`);
             const data = `data: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(new TextEncoder().encode(data));
           } catch (error) {
+            console.error(`[SSE Route] Error sending event:`, error);
             controller.error(error);
           }
         };
 
         pubsub.on(`session:${sessionId}`, handler);
+        console.log(`[SSE Route] Event handler registered for session ${sessionId}`);
 
         request.signal.addEventListener('abort', () => {
+          console.log(`[SSE Route] Connection aborted for session ${sessionId}`);
           pubsub.off(`session:${sessionId}`, handler);
           pubsub.unsubscribe(sessionId, clientId);
           controller.close();
@@ -47,6 +54,7 @@ export async function GET(
       },
     });
   } catch (error) {
+    console.error(`[SSE Route] Error:`, error);
     if (error instanceof SessionNotFoundError) {
       return new Response(
         JSON.stringify({ error: error.message }),

@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+# Git commit-msg hook to enforce conventional commit format
+# Validates: type(scope): description
+#
+# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+
+commit_msg=$(cat "$1")
+
+# Pattern for conventional commits
+# Format: type(scope): description
+# or: type: description
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+'
+
+# Check if commit message matches pattern
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+    echo "❌ Invalid commit message format!"
+    echo ""
+    echo "Commit messages must follow conventional commit format:"
+    echo "  type(scope): description"
+    echo ""
+    echo "Valid types:"
+    echo "  feat:     A new feature"
+    echo "  fix:      A bug fix"
+    echo "  docs:     Documentation only changes"
+    echo "  style:    Code style changes (formatting, missing semi colons, etc)"
+    echo "  refactor: Code refactoring"
+    echo "  perf:     Performance improvements"
+    echo "  test:     Adding or updating tests"
+    echo "  build:    Build system or external dependencies"
+    echo "  ci:       CI configuration changes"
+    echo "  chore:    Other changes that don't modify src or test files"
+    echo "  revert:   Reverts a previous commit"
+    echo ""
+    echo "Examples:"
+    echo "  feat: add user authentication"
+    echo "  fix(api): resolve rate limiting issue"
+    echo "  chore: update dependencies"
+    echo ""
+    exit 1
+fi
+
+exit 0
+

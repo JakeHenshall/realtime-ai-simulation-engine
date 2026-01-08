@@ -30,7 +30,7 @@ function SimulationContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [currentStream, setCurrentStream] = useState("");
@@ -46,6 +46,8 @@ function SimulationContent() {
   const openingRetryRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
   const isLoadingSessionRef = useRef(false);
+  const creatingSessionRef = useRef(false);
+  const currentSSESessionIdRef = useRef<string | null>(null);
   const lastMessagesHashRef = useRef<string>("");
   const lastSSEMessageTimeRef = useRef<number>(0);
   const completionMarker = "[[SESSION_COMPLETE]]";
@@ -68,33 +70,6 @@ function SimulationContent() {
     lastMessagesHashRef.current = "";
     
     if (sessionId) {
-      // Only check for stored opening message if we don't have messages yet
-      // and haven't loaded once (to prevent flickering on navigation)
-      if (messages.length === 0 && !hasLoadedOnceRef.current) {
-        const storedOpening = sessionStorage.getItem(`opening-msg-${sessionId}`);
-        if (storedOpening) {
-          try {
-            const { content, timestamp } = JSON.parse(storedOpening);
-            const openingMsg: Message = {
-              id: `msg-opening-${Date.now()}`,
-              role: "assistant",
-              content,
-              timestamp,
-              metadata: JSON.stringify({ type: "opening-message" }),
-            };
-            setMessages([openingMsg]);
-            setIsLoadingSession(false);
-            setIsAwaitingResponse(false);
-            isAwaitingResponseRef.current = false;
-            // Clear from storage once used
-            sessionStorage.removeItem(`opening-msg-${sessionId}`);
-            // Update hash to prevent duplicate
-            lastMessagesHashRef.current = `assistant:${content.substring(0, 100)}`;
-          } catch (e) {
-            // Ignore parse errors
-          }
-        }
-      }
       loadSession();
     } else if (presetId) {
       createSession();
@@ -180,6 +155,13 @@ function SimulationContent() {
   };
 
   const createSession = async () => {
+    // Prevent multiple concurrent session creations
+    if (creatingSessionRef.current) {
+      console.log("Session creation already in progress, skipping");
+      return;
+    }
+    creatingSessionRef.current = true;
+
     try {
       setErrorMessage(null);
       setShowEndSession(false);
@@ -196,40 +178,19 @@ function SimulationContent() {
 
       const newSession = await res.json();
       setSession(newSession);
-      // Start session and show opening message immediately
-      fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" })
-        .then(async (startRes) => {
-          if (startRes.ok) {
-            const startResponse = await startRes.json();
-            if (startResponse.openingMessage) {
-              // Store in sessionStorage for persistence after navigation
-              sessionStorage.setItem(
-                `opening-msg-${newSession.id}`,
-                JSON.stringify({
-                  content: startResponse.openingMessage,
-                  timestamp: new Date().toISOString(),
-                })
-              );
-              // Show immediately before navigation
-              const openingMsg: Message = {
-                id: `msg-opening-${Date.now()}`,
-                role: "assistant",
-                content: startResponse.openingMessage,
-                timestamp: new Date().toISOString(),
-                metadata: JSON.stringify({ type: "opening-message" }),
-              };
-              setMessages([openingMsg]);
-              setIsLoadingSession(false);
-              setIsAwaitingResponse(false);
-              isAwaitingResponseRef.current = false;
-            }
-          }
-        })
-        .catch(() => {});
+      
+      // Start session - opening message will be loaded via loadSession after navigation
+      await fetch(`/api/sessions/${newSession.id}/start`, { method: "POST" });
+      
       router.replace(`/simulation?sessionId=${newSession.id}`);
     } catch (error) {
       console.error("Error creating session:", error);
       setErrorMessage("Failed to create the session. Please try again.");
+    } finally {
+      // Reset the guard after a short delay to allow URL to update
+      setTimeout(() => {
+        creatingSessionRef.current = false;
+      }, 500);
     }
   };
 
@@ -237,10 +198,15 @@ function SimulationContent() {
     if (!sessionId) return;
     
     // Prevent concurrent loadSession calls to avoid flickering
-    if (isLoadingSessionRef.current) return;
+    if (isLoadingSessionRef.current) {
+      // Still ensure loading is disabled even on early return
+      setIsLoadingSession(false);
+      return;
+    }
     
     // Don't reload if we're actively streaming - SSE is the source of truth
     if (isStreamingRef.current || currentStreamRef.current) {
+      setIsLoadingSession(false);
       return;
     }
     
@@ -248,6 +214,7 @@ function SimulationContent() {
     // This prevents loadSession from overwriting messages that SSE just added
     const timeSinceLastSSE = Date.now() - lastSSEMessageTimeRef.current;
     if (timeSinceLastSSE < 2000) {
+      setIsLoadingSession(false);
       return;
     }
     
@@ -257,7 +224,8 @@ function SimulationContent() {
       // Only show loading on first load, and never if we're streaming, awaiting response, or have messages
       const isActiveConversation = isStreamingRef.current || isAwaitingResponseRef.current || messages.length > 0;
       if (!hasLoadedOnceRef.current && !isActiveConversation) {
-        setIsLoadingSession(true);
+        // Don't set loading to true - keep input enabled
+        // setIsLoadingSession(true);  // DISABLED: Keeps input enabled during load
       } else if (isActiveConversation) {
         // Never show loading during active conversation
         setIsLoadingSession(false);
@@ -299,7 +267,7 @@ function SimulationContent() {
       }
 
       // Create a hash of messages content to prevent unnecessary updates
-      const messagesHash = messagesToSet.map(m => `${m.role}:${m.content.substring(0, 100)}`).join('|');
+      const messagesHash = messagesToSet.map((m: Message) => `${m.role}:${m.content.substring(0, 100)}`).join('|');
       
       // Only update messages if they've actually changed to prevent flickering
       setMessages((prevMessages) => {
@@ -357,6 +325,17 @@ function SimulationContent() {
         setIsLoadingSession(false);
       }
       
+      // Also disable loading if we've loaded at least once
+      if (hasLoadedOnceRef.current) {
+        setIsLoadingSession(false);
+      }
+      
+      // CRITICAL: If session is ACTIVE, always disable loading even if no messages yet
+      // (Opening message might still be generating via OpenAI)
+      if (sessionData.status === "ACTIVE") {
+        setIsLoadingSession(false);
+      }
+      
       if (loadedMessages.some((msg: Message) => msg.role === "assistant")) {
         setIsAwaitingResponse(false);
         isAwaitingResponseRef.current = false;
@@ -396,45 +375,25 @@ function SimulationContent() {
         }
       } else if (sessionData.status === "PENDING" && !startInFlightRef.current) {
         startInFlightRef.current = true;
+        
+        // Enable input immediately - session will become ACTIVE when start completes
+        // Opening message will load asynchronously via loadSession
+        setIsLoadingSession(false);
+        
         fetch(`/api/sessions/${sessionId}/start`, { method: "POST" })
           .then(async (res) => {
             if (res.ok) {
-              const startResponse = await res.json();
-              // Store opening message for instant display, don't set state here to avoid flicker
-              if (startResponse.openingMessage && loadedMessages.length === 0) {
-                sessionStorage.setItem(
-                  `opening-msg-${sessionId}`,
-                  JSON.stringify({
-                    content: startResponse.openingMessage,
-                    timestamp: new Date().toISOString(),
-                  })
-                );
-                // Update state only if we don't have messages yet
-                setMessages((prev) => {
-                  if (prev.length === 0) {
-                    const openingMsg: Message = {
-                      id: `msg-opening-${Date.now()}`,
-                      role: "assistant",
-                      content: startResponse.openingMessage,
-                      timestamp: new Date().toISOString(),
-                      metadata: JSON.stringify({ type: "opening-message" }),
-                    };
-                    return [openingMsg];
-                  }
-                  return prev;
-                });
-                setIsAwaitingResponse(false);
-                isAwaitingResponseRef.current = false;
-              }
+              // Opening message will be in the database, reload to get it
+              setTimeout(() => {
+                if (loadedMessages.length === 0) {
+                  loadSession();
+                }
+              }, 500);
             }
           })
           .catch(() => {})
           .finally(() => {
             startInFlightRef.current = false;
-            // Reload once to pick up ACTIVE status and sync messages, but only if needed
-            if (loadedMessages.length === 0) {
-              setTimeout(() => loadSession(), 300);
-            }
           });
       }
     } catch (error) {
@@ -442,29 +401,45 @@ function SimulationContent() {
       setErrorMessage(
         "Unable to load this session. Please refresh and try again."
       );
+      setIsLoadingSession(false);
     } finally {
-      if (!hasLoadedOnceRef.current) {
-        setIsLoadingSession(false);
-      }
+      // Always ensure loading is disabled after load completes
+      setIsLoadingSession(false);
       isLoadingSessionRef.current = false;
     }
   };
 
   const connectSSE = () => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.log("SSE: No sessionId, skipping connection");
+      return;
+    }
+
+    // If SSE is connected to a DIFFERENT session, close it first
+    if (currentSSESessionIdRef.current && currentSSESessionIdRef.current !== sessionId) {
+      console.log("SSE: Session changed from", currentSSESessionIdRef.current, "to", sessionId, "- closing old connection");
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      currentSSESessionIdRef.current = null;
+    }
 
     if (
       eventSourceRef.current &&
       eventSourceRef.current.readyState !== EventSource.CLOSED
     ) {
+      console.log("SSE: Connection already exists for session", currentSSESessionIdRef.current, "readyState:", eventSourceRef.current.readyState);
       return;
     }
 
+    console.log("SSE: Creating new EventSource for session", sessionId);
     const eventSource = new EventSource(`/api/stream/sse/${sessionId}`);
     eventSourceRef.current = eventSource;
+    currentSSESessionIdRef.current = sessionId;
 
     eventSource.onopen = () => {
-      console.log("SSE: Connection opened for session", sessionId);
+      console.log("SSE: Connection opened successfully for session", sessionId);
     };
 
     eventSource.onmessage = (event) => {
@@ -486,7 +461,6 @@ function SimulationContent() {
           });
         } else if (data.type === "done") {
           console.log("SSE: Received done event, streamContent length:", currentStreamRef.current.length);
-        } else if (data.type === "done") {
           const streamContent = currentStreamRef.current;
           
           // Clear streaming state first
@@ -604,7 +578,17 @@ function SimulationContent() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !sessionId || isLoading) return;
+    console.log('sendMessage called! hasInput:', !!input.trim(), 'sessionId:', sessionId, 'isLoading:', isLoading, 'isStreaming:', isStreaming);
+    
+    if (!sessionId || isLoading) {
+      console.log('sendMessage BLOCKED - noSessionId:', !sessionId, 'isLoading:', isLoading);
+      return;
+    }
+    
+    if (!input.trim()) {
+      console.log('sendMessage BLOCKED - no input text');
+      return;
+    }
 
     const userMessage = input.trim();
     setInput("");
@@ -1099,14 +1083,14 @@ function SimulationContent() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => {
+          onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               sendMessage();
             }
           }}
           placeholder="Type your message..."
-          disabled={isLoading || isStreaming || isLoadingSession}
+          disabled={isLoading || isStreaming}
           style={{
             flex: 1,
             padding: "0.75rem",
@@ -1120,7 +1104,7 @@ function SimulationContent() {
         <button
           onClick={sendMessage}
           disabled={
-            isLoading || isStreaming || isLoadingSession || !input.trim()
+            isLoading || isStreaming || !input.trim()
           }
           style={{
             padding: "0.75rem 1.5rem",

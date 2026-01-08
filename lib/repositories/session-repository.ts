@@ -72,24 +72,42 @@ export class SessionRepository {
   }
 
   private async incrementMessageCount(sessionId: string): Promise<void> {
-    const metrics = await db.sessionMetrics.findUnique({
-      where: { sessionId },
-    });
-
-    if (metrics) {
-      await db.sessionMetrics.update({
+    try {
+      // Try to update first - this is the most common case
+      const updated = await db.sessionMetrics.updateMany({
         where: { sessionId },
         data: {
-          totalMessages: metrics.totalMessages + 1,
+          totalMessages: { increment: 1 },
         },
       });
-    } else {
-      await db.sessionMetrics.create({
-        data: {
-          sessionId,
-          totalMessages: 1,
-        },
-      });
+
+      // If no rows were updated, create the metrics record
+      if (updated.count === 0) {
+        try {
+          await db.sessionMetrics.create({
+            data: {
+              sessionId,
+              totalMessages: 1,
+            },
+          });
+        } catch (error: any) {
+          // If creation fails due to unique constraint (race condition),
+          // try to update again as another process must have created it
+          if (error.code === 'P2002') {
+            await db.sessionMetrics.update({
+              where: { sessionId },
+              data: {
+                totalMessages: { increment: 1 },
+              },
+            });
+          } else {
+            throw error;
+          }
+        }
+      }
+    } catch (error) {
+      // Log but don't fail the message append operation
+      console.error('Failed to increment message count:', error);
     }
   }
 

@@ -16,14 +16,15 @@ export class StreamingLLMClient {
   async *streamChat(request: StreamingLLMRequest): AsyncGenerator<StreamChunk> {
     const startTime = Date.now();
     let firstTokenTime: number | undefined;
-    const providerType = (process.env.LLM_PROVIDER || 'openai').toLowerCase();
 
     try {
-      if (providerType === 'openai' && process.env.OPENAI_API_KEY) {
+      // Always use OpenAI for streaming responses to ensure consistency
+      // OpenAI is the primary provider; fallback to Anthropic only if OpenAI key is missing
+      if (process.env.OPENAI_API_KEY) {
         yield* this.streamOpenAI(request, startTime, (time) => {
           if (!firstTokenTime) firstTokenTime = time;
         });
-      } else if (providerType === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+      } else if (process.env.ANTHROPIC_API_KEY) {
         yield* this.streamAnthropic(request, startTime, (time) => {
           if (!firstTokenTime) firstTokenTime = time;
         });
