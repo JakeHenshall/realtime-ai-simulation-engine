@@ -3,6 +3,8 @@ import { pubsub, StreamEvent } from '@/lib/pubsub';
 import { SessionService } from '@/lib/services/session-service';
 import { SessionRepository } from '@/lib/repositories/session-repository';
 import { SessionNotFoundError } from '@/lib/services/session-service';
+import { createRequestLogger } from '@/lib/logger';
+import { getRequestId } from '@/lib/middleware/request-id';
 
 const sessionService = new SessionService(new SessionRepository());
 
@@ -10,34 +12,40 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const requestId = getRequestId(request);
+  const logger = createRequestLogger(requestId, {
+    method: request.method,
+    path: request.nextUrl.pathname,
+  });
+
   try {
     const { sessionId } = await params;
-    console.log(`[SSE Route] Connection request for session ${sessionId}`);
+    logger.info({ sessionId }, 'SSE connection request');
     
     await sessionService.getSession(sessionId);
 
     const clientId = `${Date.now()}-${Math.random()}`;
     pubsub.subscribe(sessionId, clientId);
-    console.log(`[SSE Route] Client ${clientId} subscribed to session ${sessionId}`);
+    logger.info({ sessionId, clientId }, 'Client subscribed to session');
 
     const stream = new ReadableStream({
       start(controller) {
         const handler = (event: StreamEvent) => {
           try {
-            console.log(`[SSE Route] Sending ${event.type} event to client for session ${sessionId}`);
+            logger.debug({ sessionId, eventType: event.type }, 'Sending event to client');
             const data = `data: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(new TextEncoder().encode(data));
           } catch (error) {
-            console.error(`[SSE Route] Error sending event:`, error);
+            logger.error({ sessionId, error }, 'Error sending event');
             controller.error(error);
           }
         };
 
         pubsub.on(`session:${sessionId}`, handler);
-        console.log(`[SSE Route] Event handler registered for session ${sessionId}`);
+        logger.debug({ sessionId }, 'Event handler registered');
 
         request.signal.addEventListener('abort', () => {
-          console.log(`[SSE Route] Connection aborted for session ${sessionId}`);
+          logger.info({ sessionId }, 'Connection aborted');
           pubsub.off(`session:${sessionId}`, handler);
           pubsub.unsubscribe(sessionId, clientId);
           controller.close();
@@ -54,7 +62,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error(`[SSE Route] Error:`, error);
+    logger.error({ error }, 'Failed to establish SSE connection');
     if (error instanceof SessionNotFoundError) {
       return new Response(
         JSON.stringify({ error: error.message }),
