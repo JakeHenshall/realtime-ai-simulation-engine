@@ -21,8 +21,8 @@ function getPrismaClient(): PrismaClient {
     max: 1, // Limit connections per serverless function instance
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
-    // SSL disabled for demo purposes
-    ssl: false,
+    // Enable SSL for production database connections
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
   });
 
   const adapter = new PrismaPg(pool);
