@@ -58,14 +58,24 @@ const ipLimiter = new InMemoryRateLimiter();
 const sessionLimiter = new InMemoryRateLimiter();
 
 export function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  // In production, trust X-Forwarded-For only if behind a known proxy
+  // For security, only trust the first IP (closest to client) if configured
+  const trustProxy = process.env.TRUST_PROXY === 'true';
+  
+  if (trustProxy) {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+      // Take the first IP in the chain (client IP)
+      return forwarded.split(',')[0].trim();
+    }
+    const realIP = request.headers.get('x-real-ip');
+    if (realIP) {
+      return realIP.trim();
+    }
   }
-  const realIP = request.headers.get('x-real-ip');
-  if (realIP) {
-    return realIP;
-  }
+  
+  // Fallback to a constant for local/unknown scenarios
+  // Using 'unknown' ensures rate limiting still works but isn't tied to IP
   return 'unknown';
 }
 
