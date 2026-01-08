@@ -804,7 +804,7 @@ function SimulationContent() {
       >
         {messages.length === 0 && !currentStream && !isAwaitingResponse && (
           <p style={{ color: "#666", textAlign: "center", marginTop: "2rem" }}>
-            No messages yet. Start the conversation.
+            Please wait, generating Simulation
           </p>
         )}
         {messages.map((msg, idx) => (
