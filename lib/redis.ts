@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import { logger } from './logger';
 
 let redis: Redis | null = null;
 
@@ -11,10 +12,14 @@ export function getRedis(): Redis {
         const delay = Math.min(times * 50, 2000);
         return delay;
       },
+      // Enable TLS for production Redis connections
+      tls: process.env.NODE_ENV === 'production' && redisUrl.startsWith('rediss://') 
+        ? { rejectUnauthorized: true } 
+        : undefined,
     });
 
     redis.on('error', (err) => {
-      console.error('Redis error:', err);
+      logger.error({ error: err }, 'Redis connection error');
     });
   }
 
