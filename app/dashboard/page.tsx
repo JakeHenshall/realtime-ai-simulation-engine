@@ -26,6 +26,12 @@ interface Stats {
 
 interface AnalyticsData {
   sessions: Session[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
   stats: Stats;
 }
 
@@ -53,14 +59,16 @@ function formatDate(dateString: string | null): string {
 export default function DashboardPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData(currentPage);
+  }, [currentPage]);
 
-  const loadData = async () => {
+  const loadData = async (page: number) => {
     try {
-      const res = await fetch('/api/analytics');
+      setLoading(true);
+      const res = await fetch(`/api/analytics?page=${page}&limit=10`);
       if (res.ok) {
         const analyticsData = await res.json();
         setData(analyticsData);
@@ -161,107 +169,237 @@ export default function DashboardPage() {
             No completed sessions yet.
           </p>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gap: '0.5rem',
-            }}
-          >
-            {/* Header row */}
+          <>
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
-                gap: '1rem',
-                padding: '0.75rem 1rem',
-                color: '#888',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                borderBottom: '1px solid #333',
+                gap: '0.5rem',
               }}
             >
-              <div>Session</div>
-              <div>Duration</div>
-              <div>Clarity</div>
-              <div>Accuracy</div>
-              <div>Empathy</div>
-              <div>Completed</div>
-            </div>
-            {data.sessions.map((session) => (
-              <Link
-                key={session.id}
-                href={`/analysis/${session.id}`}
+              {/* Header row */}
+              <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
                   gap: '1rem',
-                  padding: '1rem',
-                  backgroundColor: '#111',
-                  border: '1px solid #333',
-                  borderRadius: '4px',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  alignItems: 'center',
-                  transition: 'border-color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#555';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#333';
+                  padding: '0.75rem 1rem',
+                  color: '#888',
+                  fontSize: '0.8rem',
+                  fontWeight: '500',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  borderBottom: '1px solid #333',
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
-                    {session.name}
+                <div>Session</div>
+                <div>Duration</div>
+                <div>Clarity</div>
+                <div>Accuracy</div>
+                <div>Empathy</div>
+                <div>Completed</div>
+              </div>
+              {data.sessions.map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/analysis/${session.id}`}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                    gap: '1rem',
+                    padding: '1rem',
+                    backgroundColor: '#111',
+                    border: '1px solid #333',
+                    borderRadius: '4px',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    alignItems: 'center',
+                    transition: 'border-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#555';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#333';
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
+                      {session.name}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                      {session.preset || 'No preset'}
+                    </div>
                   </div>
+
+                  <div style={{ fontSize: '0.9rem', color: '#999' }}>
+                    {session.duration !== null ? formatDuration(session.duration) : 'N/A'}
+                  </div>
+
+                  <div style={{ fontSize: '0.9rem' }}>
+                    {session.scores ? (
+                      <span style={{ color: session.scores.clarity >= 70 ? '#4a9' : session.scores.clarity >= 40 ? '#fa4' : '#f44' }}>
+                        {session.scores.clarity}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#666' }}>—</span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '0.9rem' }}>
+                    {session.scores ? (
+                      <span style={{ color: session.scores.accuracy >= 70 ? '#4a9' : session.scores.accuracy >= 40 ? '#fa4' : '#f44' }}>
+                        {session.scores.accuracy}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#666' }}>—</span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '0.9rem' }}>
+                    {session.scores ? (
+                      <span style={{ color: session.scores.empathy >= 70 ? '#4a9' : session.scores.empathy >= 40 ? '#fa4' : '#f44' }}>
+                        {session.scores.empathy}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#666' }}>—</span>
+                    )}
+                  </div>
+
                   <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                    {session.preset || 'No preset'}
+                    {formatDate(session.completedAt)}
                   </div>
-                </div>
+                </Link>
+              ))}
+            </div>
 
-                <div style={{ fontSize: '0.9rem', color: '#999' }}>
-                  {session.duration !== null ? formatDuration(session.duration) : 'N/A'}
-                </div>
+            {/* Pagination controls */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#111',
+                borderRadius: '4px',
+              }}
+            >
+              <div style={{ fontSize: '0.9rem', color: '#888' }}>
+                Showing {(data.pagination.page - 1) * data.pagination.limit + 1} to{' '}
+                {Math.min(data.pagination.page * data.pagination.limit, data.pagination.totalCount)} of{' '}
+                {data.pagination.totalCount} sessions
+              </div>
+              {data.pagination.totalPages > 1 && (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: currentPage === 1 || loading ? '#222' : '#333',
+                      color: currentPage === 1 || loading ? '#555' : '#fff',
+                      border: '1px solid #444',
+                      borderRadius: '4px',
+                      cursor: currentPage === 1 || loading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.9rem',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentPage !== 1 && !loading) {
+                        e.currentTarget.style.backgroundColor = '#444';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentPage !== 1 && !loading) {
+                        e.currentTarget.style.backgroundColor = '#333';
+                      }
+                    }}
+                  >
+                    Previous
+                  </button>
 
-                <div style={{ fontSize: '0.9rem' }}>
-                  {session.scores ? (
-                    <span style={{ color: session.scores.clarity >= 70 ? '#4a9' : session.scores.clarity >= 40 ? '#fa4' : '#f44' }}>
-                      {session.scores.clarity}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#666' }}>—</span>
-                  )}
-                </div>
+                  <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                    {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1)
+                      .filter((page) => {
+                        const distance = Math.abs(page - currentPage);
+                        return (
+                          page === 1 ||
+                          page === data.pagination.totalPages ||
+                          distance <= 2
+                        );
+                      })
+                      .map((page, index, array) => {
+                        const prevPage = index > 0 ? array[index - 1] : null;
+                        const showEllipsis = prevPage && page - prevPage > 1;
+                        
+                        return (
+                          <div key={page} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                            {showEllipsis && (
+                              <span style={{ padding: '0 0.5rem', color: '#666' }}>...</span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              disabled={loading}
+                              style={{
+                                padding: '0.5rem 0.75rem',
+                                backgroundColor: page === currentPage ? '#555' : '#333',
+                                color: page === currentPage ? '#fff' : '#aaa',
+                                border: '1px solid #444',
+                                borderRadius: '4px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: page === currentPage ? '600' : '400',
+                                minWidth: '2.5rem',
+                                transition: 'background-color 0.2s',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (page !== currentPage && !loading) {
+                                  e.currentTarget.style.backgroundColor = '#444';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (page !== currentPage && !loading) {
+                                  e.currentTarget.style.backgroundColor = '#333';
+                                }
+                              }}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
 
-                <div style={{ fontSize: '0.9rem' }}>
-                  {session.scores ? (
-                    <span style={{ color: session.scores.accuracy >= 70 ? '#4a9' : session.scores.accuracy >= 40 ? '#fa4' : '#f44' }}>
-                      {session.scores.accuracy}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#666' }}>—</span>
-                  )}
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === data.pagination.totalPages || loading}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: currentPage === data.pagination.totalPages || loading ? '#222' : '#333',
+                      color: currentPage === data.pagination.totalPages || loading ? '#555' : '#fff',
+                      border: '1px solid #444',
+                      borderRadius: '4px',
+                      cursor: currentPage === data.pagination.totalPages || loading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.9rem',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentPage !== data.pagination.totalPages && !loading) {
+                        e.currentTarget.style.backgroundColor = '#444';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentPage !== data.pagination.totalPages && !loading) {
+                        e.currentTarget.style.backgroundColor = '#333';
+                      }
+                    }}
+                  >
+                    Next
+                  </button>
                 </div>
-
-                <div style={{ fontSize: '0.9rem' }}>
-                  {session.scores ? (
-                    <span style={{ color: session.scores.empathy >= 70 ? '#4a9' : session.scores.empathy >= 40 ? '#fa4' : '#f44' }}>
-                      {session.scores.empathy}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#666' }}>—</span>
-                  )}
-                </div>
-
-                <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                  {formatDate(session.completedAt)}
-                </div>
-              </Link>
-            ))}
-          </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </main>
