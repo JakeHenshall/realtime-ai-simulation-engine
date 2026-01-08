@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { SessionStatus, SimulationSession, SimulationMessage } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 export interface CreateSessionData {
   name: string;
@@ -107,7 +108,7 @@ export class SessionRepository {
       }
     } catch (error) {
       // Log but don't fail the message append operation
-      console.error('Failed to increment message count:', error);
+      logger.warn({ sessionId, error }, 'Failed to increment message count');
     }
   }
 
